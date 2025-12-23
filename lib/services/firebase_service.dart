@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import '../models/transaction.dart';
 import '../models/account.dart';
 import '../models/budget.dart';
 import '../models/card_model.dart';
+import '../models/category.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
@@ -239,6 +240,58 @@ class FirebaseService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Budget.fromFirestore(doc))
+            .toList());
+  }
+
+  // Category Methods
+
+  /// Add category
+  Future<void> addCategory(Category category) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('categories')
+        .doc(category.id)
+        .set(category.toFirestore());
+  }
+
+  /// Update category
+  Future<void> updateCategory(Category category) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('categories')
+        .doc(category.id)
+        .update(category.toFirestore());
+  }
+
+  /// Delete category
+  Future<void> deleteCategory(String categoryId) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('categories')
+        .doc(categoryId)
+        .delete();
+  }
+
+  /// Get all categories
+  Stream<List<Category>> getCategories() {
+    if (currentUserId == null) return Stream.value([]);
+
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('categories')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Category.fromFirestore(doc))
             .toList());
   }
 

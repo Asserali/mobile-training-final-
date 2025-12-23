@@ -300,16 +300,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<Map<String, dynamic>> _loadAnalyticsData(AppState appState) async {
-    final transactions = await appState.getTransactionsByDateRange(
+    final transactions = appState.getTransactionsByDateRange(
       _startDate,
       _endDate,
     );
-    final spendingByCategory = await appState.getSpendingByCategory(
+    final spendingByCategory = appState.getSpendingByCategory(
       _startDate,
       _endDate,
     );
-    final totalIncome = await appState.getTotalIncome(_startDate, _endDate);
-    final totalExpenses = await appState.getTotalExpenses(_startDate, _endDate);
+    final totalIncome = appState.getTotalIncome(_startDate, _endDate);
+    final totalExpenses = appState.getTotalExpenses(_startDate, _endDate);
 
     return {
       'transactions': transactions,

@@ -37,6 +37,30 @@ class Category {
       ),
     );
   }
+
+  // Firestore serialization
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'name': name,
+      'icon': icon.codePoint,
+      'color': color.value,
+      'type': type.toString().split('.').last,
+    };
+  }
+
+  factory Category.fromFirestore(dynamic doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Category(
+      id: doc.id,
+      name: data['name'] as String,
+      icon: IconData(data['icon'] as int, fontFamily: 'MaterialIcons'),
+      color: Color(data['color'] as int),
+      type: TransactionType.values.firstWhere(
+        (e) => e.toString().split('.').last == data['type'],
+      ),
+    );
+  }
 }
 
 // Default categories

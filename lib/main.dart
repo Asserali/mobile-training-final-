@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,17 +10,26 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase only if not already initialized
   try {
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    print('🔥 Firebase initialized successfully!');
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(
+        const Duration(seconds: 10),
+      );
+      debugPrint('🔥 Firebase initialized successfully!');
+    } else {
+      debugPrint('🔥 Firebase already initialized');
+    }
+  } on TimeoutException catch (e) {
+    debugPrint('⚠️ Firebase initialization timed out: $e');
+    debugPrint('⚠️ App will continue in offline mode');
   } catch (e) {
-    print('❌ Firebase initialization failed: $e');
-    print('⚠️ App will run in offline mode');
+    debugPrint('❌ Firebase initialization failed: $e');
+    debugPrint('⚠️ App will continue in offline mode');
   }
-  
+
   runApp(const MyApp());
 }
 

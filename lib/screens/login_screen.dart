@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/firebase_service.dart';
+import '../services/mock_firebase_service.dart';
 import 'home_screen.dart';
 import 'registration_wizard.dart';
 

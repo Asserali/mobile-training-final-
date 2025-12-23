@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/firebase_service.dart';
+import '../services/mock_firebase_service.dart';
 import '../models/user_profile.dart';
 import 'home_screen.dart';
 
@@ -143,21 +144,41 @@ class _RegistrationWizardState extends State<RegistrationWizard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Registration successful!'),
+            content: Text('✅ Registration successful! Welcome to Egyptian Banking!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        
+
+        // Wait a moment for user to see the success message
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // Navigate to home
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration failed: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Registration failed. Please try again.\n${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
