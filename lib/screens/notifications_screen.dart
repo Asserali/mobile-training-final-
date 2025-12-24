@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/notification_model.dart';
+import 'send_money_screen.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -163,6 +164,35 @@ class _NotificationCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (notification.category == 'Requests' && notification.metadata != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SendMoneyScreen(
+                            initialRecipient: notification.metadata!['requesterId'] ?? notification.metadata!['requesterName'],
+                            initialAmount: (notification.metadata!['amount'] as num?)?.toDouble(),
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00E676),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Pay Now'),
+                  ),
+                ),
+              ),
           ],
         ),
         onTap: () {

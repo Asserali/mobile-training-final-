@@ -7,7 +7,14 @@ import '../models/account.dart';
 import '../models/transaction.dart';
 
 class SendMoneyScreen extends StatefulWidget {
-  const SendMoneyScreen({super.key});
+  final String? initialRecipient;
+  final double? initialAmount;
+
+  const SendMoneyScreen({
+    super.key,
+    this.initialRecipient,
+    this.initialAmount,
+  });
 
   @override
   State<SendMoneyScreen> createState() => _SendMoneyScreenState();
@@ -22,6 +29,12 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialRecipient != null) {
+      _recipientController.text = widget.initialRecipient!;
+    }
+    if (widget.initialAmount != null) {
+      _amountController.text = widget.initialAmount!.toStringAsFixed(2);
+    }
     final appState = Provider.of<AppState>(context, listen: false);
     if (appState.accounts.isNotEmpty) {
       _selectedAccount = appState.selectedAccount ?? appState.accounts.first;

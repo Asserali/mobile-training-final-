@@ -547,6 +547,12 @@ class AppState extends ChangeNotifier {
           message: '${_userProfile?['name'] ?? 'Someone'} requested \$${amount.toStringAsFixed(2)}${reason != null && reason.isNotEmpty ? ' for $reason' : ''}',
           time: DateTime.now(),
           category: 'Requests',
+          metadata: {
+            'amount': amount,
+            'requesterName': _userProfile?['name'] ?? 'Someone',
+            'requesterId': currentUserId, // Current user is the one requesting
+            'reason': reason,
+          },
         ));
       }
     } catch (e) {

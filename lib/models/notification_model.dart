@@ -9,6 +9,7 @@ class NotificationItem {
   final DateTime time;
   final bool isRead;
   final String category;
+  final Map<String, dynamic>? metadata;
 
   NotificationItem({
     required this.id,
@@ -19,6 +20,7 @@ class NotificationItem {
     required this.time,
     this.isRead = false,
     required this.category,
+    this.metadata,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class NotificationItem {
       'time': time.toIso8601String(),
       'isRead': isRead,
       'category': category,
+      'metadata': metadata,
     };
   }
 
@@ -44,6 +47,7 @@ class NotificationItem {
       time: DateTime.parse(map['time'] as String),
       isRead: map['isRead'] as bool? ?? false,
       category: map['category'] as String,
+      metadata: map['metadata'] as Map<String, dynamic>?,
     );
   }
 }
