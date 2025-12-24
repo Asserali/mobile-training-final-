@@ -34,6 +34,7 @@ class BankCard {
   final double currentMonthlySpent;
   final bool isVirtual;
   final Color cardColor;
+  final bool isDefault;
 
   BankCard({
     required this.id,
@@ -50,6 +51,7 @@ class BankCard {
     this.currentMonthlySpent = 0.0,
     this.isVirtual = false,
     this.cardColor = Colors.blue,
+    this.isDefault = false,
   });
 
   String get maskedCardNumber {
@@ -88,6 +90,7 @@ class BankCard {
       'currentMonthlySpent': currentMonthlySpent,
       'isVirtual': isVirtual,
       'cardColor': cardColor.value,
+      'isDefault': isDefault,
     };
   }
 
@@ -113,6 +116,7 @@ class BankCard {
       currentMonthlySpent: (map['currentMonthlySpent'] as num).toDouble(),
       isVirtual: map['isVirtual'] as bool,
       cardColor: Color(map['cardColor'] as int),
+      isDefault: map['isDefault'] as bool? ?? false,
     );
   }
 
@@ -131,6 +135,7 @@ class BankCard {
     double? currentMonthlySpent,
     bool? isVirtual,
     Color? cardColor,
+    bool? isDefault,
   }) {
     return BankCard(
       id: id ?? this.id,
@@ -147,6 +152,7 @@ class BankCard {
       currentMonthlySpent: currentMonthlySpent ?? this.currentMonthlySpent,
       isVirtual: isVirtual ?? this.isVirtual,
       cardColor: cardColor ?? this.cardColor,
+      isDefault: isDefault ?? this.isDefault,
     );
   }
 
@@ -167,6 +173,7 @@ class BankCard {
       'currentMonthlySpent': currentMonthlySpent,
       'isVirtual': isVirtual,
       'cardColor': cardColor.value,
+      'isDefault': isDefault,
     };
   }
 
@@ -193,6 +200,7 @@ class BankCard {
       currentMonthlySpent: (data['currentMonthlySpent'] as num).toDouble(),
       isVirtual: data['isVirtual'] as bool,
       cardColor: Color(data['cardColor'] as int),
+      isDefault: data['isDefault'] as bool? ?? false,
     );
   }
 }

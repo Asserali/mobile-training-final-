@@ -290,7 +290,9 @@ class _DashboardTab extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Savings • #821',
+                              appState.activeCard != null 
+                                ? '${appState.activeCard!.network.name.toUpperCase()} • **** ${appState.activeCard!.cardNumber}'
+                                : (appState.selectedAccount?.name ?? 'Main Account'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

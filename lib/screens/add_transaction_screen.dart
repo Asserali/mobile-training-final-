@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/card_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Transaction? transaction;
@@ -29,6 +30,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   late TransactionType _type;
   DateTime _selectedDate = DateTime.now();
   Category? _selectedCategory;
+  BankCard? _selectedCard;
 
   @override
   void initState() {
@@ -60,39 +62,37 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
     }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
+      _showSnackBar('Please select a category');
       return;
     }
 
     final appState = context.read<AppState>();
-    if (appState.selectedAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No account selected')),
-      );
+    // If no card is selected, try to use active card or first account
+    final accountId = _selectedCard?.accountId ?? 
+                     appState.activeCard?.accountId ?? 
+                     (appState.accounts.isNotEmpty ? appState.accounts.first.id : null);
+
+    if (accountId == null) {
+      _showSnackBar('No account available for transaction');
       return;
     }
 
     final transaction = Transaction(
-      id: widget.transaction?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.transaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: _titleController.text,
       amount: double.parse(_amountController.text),
       category: _selectedCategory!.id,
       date: _selectedDate,
       type: _type,
       notes: _notesController.text.isEmpty ? null : _notesController.text,
-      accountId: appState.selectedAccount!.id,
+      accountId: accountId,
     );
 
     if (widget.transaction != null) {
@@ -102,84 +102,130 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     if (appState.error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(appState.error!),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar(appState.error!, isError: true);
       appState.clearError();
     } else if (mounted) {
       Navigator.pop(context);
     }
   }
 
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appState = context.watch<AppState>();
-    final categories = appState.categories
-        .where((c) => c.type == _type)
-        .toList();
+    final categories = appState.categories.where((c) => c.type == _type).toList();
+    final cards = appState.cards;
 
-    // Auto-select category if editing
     if (widget.transaction != null && _selectedCategory == null) {
       _selectedCategory = appState.getCategoryById(widget.transaction!.category);
     }
+    
+    // Default selected card to active card if not set
+    _selectedCard ??= appState.activeCard;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.transaction != null ? 'Edit Transaction' : 'Add Transaction',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _submit,
-          ),
-        ],
+        title: Text(widget.transaction != null ? 'Edit Transaction' : 'Add Transaction'),
+        actions: [IconButton(icon: const Icon(Icons.check), onPressed: _submit)],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Type Selector
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Transaction Type',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    SegmentedButton<TransactionType>(
-                      segments: const [
-                        ButtonSegment(
-                          value: TransactionType.expense,
-                          label: Text('Expense'),
-                          icon: Icon(Icons.arrow_upward),
-                        ),
-                        ButtonSegment(
-                          value: TransactionType.income,
-                          label: Text('Income'),
-                          icon: Icon(Icons.arrow_downward),
-                        ),
-                      ],
-                      selected: {_type},
-                      onSelectionChanged: (Set<TransactionType> newSelection) {
-                        setState(() {
-                          _type = newSelection.first;
-                          _selectedCategory = null; // Reset category
-                        });
-                      },
-                    ),
-                  ],
+            // Amount at Top for prominence
+            TextFormField(
+              controller: _amountController,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: _type == TransactionType.income ? const Color(0xFF00E676) : Colors.red,
+              ),
+              decoration: const InputDecoration(
+                hintText: '0.00',
+                border: InputBorder.none,
+                prefixText: '\$ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+              validator: (val) => (val == null || double.tryParse(val) == null || double.parse(val) <= 0) ? 'Invalid amount' : null,
+            ),
+            const SizedBox(height: 16),
+
+            // Card / Account Selector
+            if (cards.isNotEmpty)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.credit_card),
+                  title: const Text('Payment Method'),
+                  subtitle: Text(_selectedCard != null 
+                    ? '${_selectedCard!.network.name.toUpperCase()} (**** ${_selectedCard!.cardNumber})'
+                    : 'Select Card'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (context) => ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: cards.length,
+                        itemBuilder: (context, index) {
+                          final card = cards[index];
+                          return ListTile(
+                            leading: Icon(Icons.credit_card, color: card.cardColor),
+                            title: Text(card.network.name.toUpperCase()),
+                            subtitle: Text('**** ${card.cardNumber}'),
+                            selected: _selectedCard?.id == card.id,
+                            onTap: () {
+                              setState(() => _selectedCard = card);
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
+            const SizedBox(height: 16),
+
+            // Type Selector
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('Expense')),
+                    selected: _type == TransactionType.expense,
+                    onSelected: (val) => setState(() {
+                      if (val) _type = TransactionType.expense;
+                      _selectedCategory = null;
+                    }),
+                    selectedColor: Colors.red.withOpacity(0.2),
+                    labelStyle: TextStyle(color: _type == TransactionType.expense ? Colors.red : Colors.black),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('Income')),
+                    selected: _type == TransactionType.income,
+                    onSelected: (val) => setState(() {
+                      if (val) _type = TransactionType.income;
+                      _selectedCategory = null;
+                    }),
+                    selectedColor: const Color(0xFF00E676).withOpacity(0.2),
+                    labelStyle: TextStyle(color: _type == TransactionType.income ? const Color(0xFF00E676) : Colors.black),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -187,135 +233,52 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             TextFormField(
               controller: _titleController,
               decoration: const InputDecoration(
-                labelText: 'Title',
+                labelText: 'What was this for?',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.title),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a title';
-                }
-                return null;
-              },
+              validator: (val) => (val == null || val.isEmpty) ? 'Required' : null,
             ),
             const SizedBox(height: 16),
 
-            // Amount
-            TextFormField(
-              controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.attach_money),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter an amount';
-                }
-                final amount = double.tryParse(value);
-                if (amount == null || amount <= 0) {
-                  return 'Please enter a valid amount greater than 0';
-                }
-                return null;
-              },
+            // Category Selection
+            Text('Category', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: categories.map((cat) {
+                final isSelected = _selectedCategory?.id == cat.id;
+                return FilterChip(
+                  selected: isSelected,
+                  label: Text(cat.name),
+                  avatar: Icon(cat.icon, size: 16, color: isSelected ? Colors.white : cat.color),
+                  onSelected: (val) => setState(() => _selectedCategory = val ? cat : null),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 16),
 
-            // Category
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Category',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    if (categories.isEmpty)
-                      const Text('No categories available')
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: categories.map((category) {
-                          final isSelected = _selectedCategory?.id == category.id;
-                          return FilterChip(
-                            selected: isSelected,
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  category.icon,
-                                  size: 16,
-                                  color: isSelected
-                                      ? theme.colorScheme.onSecondaryContainer
-                                      : category.color,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(category.name),
-                              ],
-                            ),
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategory = selected ? category : null;
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Date
+            // Date & Notes
             ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outline),
-              ),
               leading: const Icon(Icons.calendar_today),
-              title: const Text('Date'),
-              subtitle: Text(DateFormat('MMMM dd, yyyy').format(_selectedDate)),
+              title: Text(DateFormat('MMMM dd, yyyy').format(_selectedDate)),
               onTap: _selectDate,
+              tileColor: Colors.grey[100],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             const SizedBox(height: 16),
-
-            // Notes
             TextFormField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note),
-              ),
-              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+              maxLines: 2,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-            // Submit Button
-            FilledButton(
-              onPressed: appState.isLoading ? null : _submit,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: appState.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        widget.transaction != null
-                            ? 'Update Transaction'
-                            : 'Add Transaction',
-                      ),
+            SizedBox(
+              height: 56,
+              child: FilledButton(
+                onPressed: appState.isLoading ? null : _submit,
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00E676)),
+                child: Text(widget.transaction != null ? 'Update' : 'Add Transaction'),
               ),
             ),
           ],

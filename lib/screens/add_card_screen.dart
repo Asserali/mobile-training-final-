@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
+import '../models/card_model.dart';
 
 class AddCardScreen extends StatefulWidget {
   const AddCardScreen({super.key});
@@ -22,26 +25,19 @@ class _AddCardScreenState extends State<AddCardScreen> {
       'name': 'Visa',
       'color': const Color(0xFF1A1F71),
       'icon': Icons.credit_card,
+      'network': CardNetwork.visa,
     },
     'mastercard': {
       'name': 'Mastercard',
       'color': const Color(0xFFEB001B),
       'icon': Icons.credit_card,
+      'network': CardNetwork.mastercard,
     },
     'meeza': {
       'name': 'Meeza',
-      'color': const Color(0xFFFF6F00), // Egyptian orange
+      'color': const Color(0xFFFF6F00),
       'icon': Icons.credit_card,
-    },
-    'paypal': {
-      'name': 'PayPal',
-      'color': const Color(0xFF003087),
-      'icon': Icons.paypal,
-    },
-    'skrill': {
-      'name': 'Skrill',
-      'color': const Color(0xFF862165),
-      'icon': Icons.account_balance_wallet,
+      'network': CardNetwork.meeza,
     },
   };
 
@@ -58,9 +54,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
     value = value.replaceAll(' ', '');
     String formatted = '';
     for (int i = 0; i < value.length; i++) {
-      if (i > 0 && i % 4 == 0) {
-        formatted += ' ';
-      }
+      if (i > 0 && i % 4 == 0) formatted += ' ';
       formatted += value[i];
     }
     return formatted;
@@ -76,6 +70,8 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context, listen: false);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -221,21 +217,15 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 children: _cardTypes.keys.map((type) {
                   final isSelected = _selectedCardType == type;
                   return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedCardType = type;
-                      });
-                    },
+                    onTap: () => setState(() => _selectedCardType = type),
                     child: Container(
-                      width: 70,
-                      height: 70,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF00E676)
-                              : Colors.transparent,
+                          color: isSelected ? const Color(0xFF00E676) : Colors.transparent,
                           width: 3,
                         ),
                       ),
@@ -248,12 +238,13 @@ class _AddCardScreenState extends State<AddCardScreen> {
                             size: 28,
                           ),
                           const SizedBox(height: 4),
-                          if (isSelected)
-                            const Icon(
-                              Icons.check_circle,
-                              color: Color(0xFF00E676),
-                              size: 16,
+                          Text(
+                            _cardTypes[type]!['name'] as String,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -271,34 +262,22 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Card Holder Name
                     TextFormField(
                       controller: _cardHolderController,
                       decoration: InputDecoration(
                         hintText: 'Card Holder Name',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       textCapitalization: TextCapitalization.characters,
                       onChanged: (value) => setState(() {}),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter card holder name';
-                        }
-                        return null;
-                      },
+                      validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
-
-                    // Card Number
                     TextFormField(
                       controller: _cardNumberController,
                       decoration: InputDecoration(
-                        hintText: '5632-1587-536-256',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        hintText: 'Card Number',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
@@ -306,29 +285,17 @@ class _AddCardScreenState extends State<AddCardScreen> {
                         LengthLimitingTextInputFormatter(16),
                       ],
                       onChanged: (value) => setState(() {}),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter card number';
-                        }
-                        if (value.length < 13) {
-                          return 'Card number must be at least 13 digits';
-                        }
-                        return null;
-                      },
+                      validator: (value) => (value == null || value.length < 13) ? 'Invalid card number' : null,
                     ),
                     const SizedBox(height: 16),
-
-                    // Expiry and CVV
                     Row(
                       children: [
                         Expanded(
                           child: TextFormField(
                             controller: _expiryController,
                             decoration: InputDecoration(
-                              hintText: '05/2022',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              hintText: 'MM/YY',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             keyboardType: TextInputType.number,
                             inputFormatters: [
@@ -343,15 +310,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                                 );
                               });
                             },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Required';
-                              }
-                              if (value.length < 5) {
-                                return 'Invalid';
-                              }
-                              return null;
-                            },
+                            validator: (value) => (value == null || value.length < 5) ? 'Invalid' : null,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -359,60 +318,66 @@ class _AddCardScreenState extends State<AddCardScreen> {
                           child: TextFormField(
                             controller: _cvvController,
                             decoration: InputDecoration(
-                              hintText: '******',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              hintText: 'CVV',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             obscureText: true,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
+                              LengthLimitingTextInputFormatter(3),
                             ],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Required';
-                              }
-                              if (value.length < 3) {
-                                return 'Invalid';
-                              }
-                              return null;
-                            },
+                            validator: (value) => (value == null || value.length < 3) ? 'Invalid' : null,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Add Card Button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Card added successfully!'),
-                                backgroundColor: Color(0xFF00E676),
-                              ),
+                            final last4 = _cardNumberController.text.substring(_cardNumberController.text.length - 4);
+                            
+                            final expiryParts = _expiryController.text.split('/');
+                            final expiryDate = DateTime(
+                              2000 + int.parse(expiryParts[1]),
+                              int.parse(expiryParts[0]),
                             );
-                            Navigator.pop(context);
+
+                            final newCard = BankCard(
+                              id: DateTime.now().millisecondsSinceEpoch.toString(),
+                              accountId: appState.accounts.isNotEmpty ? appState.accounts.first.id : 'default',
+                              cardNumber: last4,
+                              cardHolderName: _cardHolderController.text,
+                              type: CardType.debit,
+                              network: _cardTypes[_selectedCardType]!['network'] as CardNetwork,
+                              expiryDate: expiryDate,
+                              cardColor: _cardTypes[_selectedCardType]!['color'] as Color,
+                            );
+
+                            await appState.addCard(newCard);
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Card added successfully!'),
+                                  backgroundColor: Color(0xFF00E676),
+                                ),
+                              );
+                              Navigator.pop(context);
+                            }
                           }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF00E676),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         child: const Text(
                           'Add Card',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),

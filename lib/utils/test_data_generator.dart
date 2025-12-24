@@ -41,12 +41,12 @@ class TestDataGenerator {
       createdAt: DateTime.now().subtract(const Duration(days: 90)),
     );
 
-    await db.insertAccount(savingsAccount);
-    await db.insertAccount(checkingAccount);
+    await db.createAccount(savingsAccount);
+    await db.createAccount(checkingAccount);
     print('✅ Created 2 accounts');
 
     // Create sample categories (they should already exist from default categories)
-    final categories = await db.getCategories();
+    final categories = await db.getAllCategories();
     print('✅ Found ${categories.length} categories');
 
     // Create sample transactions
@@ -168,7 +168,7 @@ class TestDataGenerator {
     ];
 
     for (var transaction in transactions) {
-      await db.insertTransaction(transaction);
+      await db.createTransaction(transaction);
     }
     print('✅ Created ${transactions.length} transactions');
 
