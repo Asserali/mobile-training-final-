@@ -232,13 +232,15 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                     items: appState.accounts.map((account) {
+                      final card = appState.cards.where((c) => c.accountId == account.id).firstOrNull;
+                      final suffix = card != null ? ' (ending with ${card.cardNumber})' : '';
                       return DropdownMenuItem(
                         value: account,
                         child: Row(
                           children: [
                             const Icon(Icons.account_balance_wallet, color: Color(0xFF00E676), size: 20),
                             const SizedBox(width: 12),
-                            Text(account.name),
+                            Text('${account.name}$suffix'),
                           ],
                         ),
                       );
@@ -457,7 +459,10 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
                 final appState = Provider.of<AppState>(context, listen: false);
-                final type = value.length > 10 ? 'Account ID' : 'Phone';
+                String type = 'Account ID';
+                if (RegExp(r'^01[0-2,5]\d{8}$').hasMatch(value)) {
+                  type = 'Phone';
+                }
                 await appState.addContact(nameController.text, value, type);
                 if (context.mounted) {
                   Navigator.pop(context); // Close dialog

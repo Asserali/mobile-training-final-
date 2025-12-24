@@ -262,7 +262,9 @@ class _DashboardTab extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              currencyFormat.format(appState.totalBalance),
+                              appState.showBalance 
+                                  ? currencyFormat.format(appState.totalBalance)
+                                  : '••••••••',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,
@@ -270,10 +272,13 @@ class _DashboardTab extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(
-                              Icons.visibility_outlined,
-                              color: Colors.white70,
-                              size: 20,
+                            GestureDetector(
+                              onTap: appState.toggleBalanceVisibility,
+                              child: Icon(
+                                appState.showBalance ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                color: Colors.white70,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),

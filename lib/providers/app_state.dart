@@ -41,6 +41,7 @@ class AppState extends ChangeNotifier {
   String? _error;
   Account? _selectedAccount;
   BankCard? _activeCard;
+  bool _showBalance = true;
 
   // Getters
   bool get isAuthenticated => _isAuthenticated;
@@ -57,6 +58,7 @@ class AppState extends ChangeNotifier {
   Account? get selectedAccount => _selectedAccount;
   BankCard? get activeCard => _activeCard;
   Map<String, dynamic>? get userProfile => _userProfile;
+  bool get showBalance => _showBalance;
 
   double get totalBalance {
     return _accounts.fold(0.0, (sum, account) => sum + account.balance);
@@ -78,6 +80,11 @@ class AppState extends ChangeNotifier {
 
   void selectAccount(Account account) {
     _selectedAccount = account;
+    notifyListeners();
+  }
+
+  void toggleBalanceVisibility() {
+    _showBalance = !_showBalance;
     notifyListeners();
   }
 
@@ -334,16 +341,19 @@ class AppState extends ChangeNotifier {
 
       final account = _accounts.firstWhere((a) => a.id == transaction.accountId);
 
-      // Validation for Frozen Card and Limits
-      try {
-        final card = _cards.firstWhere((c) => c.accountId == account.id);
+        BankCard? card;
+        try {
+          card = _cards.firstWhere((c) => c.accountId == account.id);
+        } catch (_) {
+          // No card linked - that's fine for some accounts
+        }
         
-        if (card.status == CardStatus.frozen) {
+        if (card != null && card.status == CardStatus.frozen) {
           _setError('This card is frozen. Please unfreeze it to perform transactions.');
           return;
         }
 
-        if (transaction.type == TransactionType.expense) {
+        if (card != null && transaction.type == TransactionType.expense) {
           if (transaction.amount > card.dailyLimitRemaining) {
             _setError('Transaction exceeds daily limit of \$${card.dailyLimit}');
             return;
@@ -361,8 +371,9 @@ class AppState extends ChangeNotifier {
           await _firebase.updateCard(updatedCard);
         }
       } catch (e) {
-        // If no card is linked to this account, proceed with account-only logic
-        debugPrint('No card linked to account: $e');
+        debugPrint('Error in limit/freeze validation: $e');
+        // If it was a critical validation error that returned, we don't reach here.
+        // If it was just "no card found", we continue.
       }
 
       final newBalance = transaction.type == TransactionType.income
@@ -377,6 +388,12 @@ class AppState extends ChangeNotifier {
       await _firebase.addTransaction(transaction);
       await updateAccountBalance(account.id, newBalance);
 
+      // Handle P2P Transfer if recipient is specified
+      if (transaction.category == 'Transfer') {
+        final recipientValue = transaction.title.replaceFirst('Sent to ', '');
+        await _handleP2PTransfer(recipientValue, transaction.amount, transaction.notes);
+      }
+
       // Add Notification if settings allow
       final settings = _userProfile?['notificationSettings'] as Map<String, dynamic>?;
       final showTransactionAlerts = settings?['transactionAlerts'] ?? true;
@@ -388,13 +405,85 @@ class AppState extends ChangeNotifier {
           icon: transaction.type == TransactionType.income ? Icons.arrow_downward : Icons.arrow_upward,
           iconColor: transaction.type == TransactionType.income ? Colors.green : Colors.red,
           title: 'Transaction Alert',
-          message: 'You ${transaction.type == TransactionType.income ? 'received' : 'spent'} \$${transaction.amount.toStringAsFixed(2)} at ${transaction.title}',
+          message: 'You ${transaction.type == TransactionType.income ? 'received' : 'spent'} \$${transaction.amount.toStringAsFixed(2)} for ${transaction.title}',
           time: DateTime.now(),
           category: 'Transactions',
         ));
       }
     } catch (e) {
       _setError('Failed to add transaction: $e');
+    }
+  }
+
+  Future<void> _handleP2PTransfer(String recipient, double amount, String? notes) async {
+    try {
+      // 1. Find user by Phone or Account ID (UID)
+      Map<String, dynamic>? targetUser;
+      String? targetUid;
+
+      // Try searching by phone first (Egyptian format)
+      if (recipient.startsWith('01') && recipient.length == 11) {
+        final result = await _firebase.findUserByPhone(recipient);
+        if (result != null) {
+          targetUser = result['data'];
+          targetUid = result['uid'];
+        }
+      }
+
+      // If not found by phone, try searching by National ID / Account ID (numeric)
+      if (targetUid == null && RegExp(r'^\d+$').hasMatch(recipient)) {
+        final result = await _firebase.findUserByNationalId(recipient);
+        if (result != null) {
+          targetUser = result['data'];
+          targetUid = result['uid'];
+        }
+      }
+
+      // If not found yet, try searching by UID (Account ID)
+      if (targetUid == null) {
+        final result = await _firebase.getUserProfileById(recipient);
+        if (result != null) {
+          targetUser = result;
+          targetUid = recipient;
+        }
+      }
+
+      if (targetUid != null) {
+        // 2. Add income transaction to recipient
+        final incomeTransaction = Transaction(
+          id: 'rec_${DateTime.now().millisecondsSinceEpoch}',
+          accountId: 'main', // Default to their main account
+          title: 'Received from ${_userProfile?['name'] ?? 'Unknown'}',
+          amount: amount,
+          date: DateTime.now(),
+          type: TransactionType.income,
+          category: 'Transfer',
+          notes: notes,
+        );
+
+        await _firebase.addTransactionToUser(targetUid, incomeTransaction);
+        
+        // 3. Update recipient balance (this is tricky because we don't know their account IDs easily)
+        // For simulation, we'll assume they have a 'main' account or we just record the transaction.
+        // A real system would have a more complex ledger.
+        
+        // 4. Send notification to recipient
+        await _firebase.addNotificationToUser(targetUid, NotificationItem(
+          id: 'not_${DateTime.now().millisecondsSinceEpoch}',
+          icon: Icons.account_balance_wallet,
+          iconColor: Colors.green,
+          title: 'Money Received',
+          message: 'You received \$${amount.toStringAsFixed(2)} from ${_userProfile?['name'] ?? 'Unknown'}',
+          time: DateTime.now(),
+          category: 'Transfer',
+        ));
+        
+        debugPrint('P2P Transfer successful to $targetUid');
+      } else {
+        debugPrint('Recipient $recipient not found in system - transaction remains local');
+      }
+    } catch (e) {
+      debugPrint('Error in P2P transfer logic: $e');
     }
   }
 

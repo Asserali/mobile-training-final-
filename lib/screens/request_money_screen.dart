@@ -308,7 +308,10 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
                 final appState = Provider.of<AppState>(context, listen: false);
-                final type = value.length > 10 ? 'Account ID' : 'Phone';
+                String type = 'Account ID';
+                if (RegExp(r'^01[0-2,5]\d{8}$').hasMatch(value)) {
+                  type = 'Phone';
+                }
                 await appState.addContact(nameController.text, value, type);
                 if (context.mounted) {
                   Navigator.pop(context);

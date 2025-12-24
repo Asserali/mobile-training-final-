@@ -87,15 +87,55 @@ class FirebaseService {
     return doc.data();
   }
 
+  /// Get user profile by ID
+  Future<Map<String, dynamic>?> getUserProfileById(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    return doc.data();
+  }
+
+  /// Find user by phone number
+  Future<Map<String, dynamic>?> findUserByPhone(String phone) async {
+    final result = await _firestore
+        .collection('users')
+        .where('phoneNumber', isEqualTo: phone)
+        .limit(1)
+        .get();
+    
+    if (result.docs.isEmpty) return null;
+    return {
+      'uid': result.docs.first.id,
+      'data': result.docs.first.data(),
+    };
+  }
+
+  /// Find user by national ID or account number
+  Future<Map<String, dynamic>?> findUserByNationalId(String nationalId) async {
+    final result = await _firestore
+        .collection('users')
+        .where('nationalId', isEqualTo: nationalId)
+        .limit(1)
+        .get();
+    
+    if (result.docs.isEmpty) return null;
+    return {
+      'uid': result.docs.first.id,
+      'data': result.docs.first.data(),
+    };
+  }
+
   // Transaction Methods
 
   /// Add transaction
   Future<void> addTransaction(Transaction transaction) async {
     if (currentUserId == null) throw Exception('No user logged in');
-    
+    await addTransactionToUser(currentUserId!, transaction);
+  }
+
+  /// Add transaction to specific user
+  Future<void> addTransactionToUser(String uid, Transaction transaction) async {
     await _firestore
         .collection('users')
-        .doc(currentUserId)
+        .doc(uid)
         .collection('transactions')
         .doc(transaction.id)
         .set(transaction.toFirestore());
@@ -353,10 +393,14 @@ class FirebaseService {
   /// Add notification
   Future<void> addNotification(NotificationItem notification) async {
     if (currentUserId == null) throw Exception('No user logged in');
-    
+    await addNotificationToUser(currentUserId!, notification);
+  }
+
+  /// Add notification to specific user
+  Future<void> addNotificationToUser(String uid, NotificationItem notification) async {
     await _firestore
         .collection('users')
-        .doc(currentUserId)
+        .doc(uid)
         .collection('notifications')
         .doc(notification.id)
         .set(notification.toMap());
