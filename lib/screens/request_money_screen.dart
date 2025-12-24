@@ -12,11 +12,13 @@ class RequestMoneyScreen extends StatefulWidget {
 class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
   final _amountController = TextEditingController(text: '0.00');
   final _descriptionController = TextEditingController();
+  final _recipientController = TextEditingController();
 
   @override
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    _recipientController.dispose();
     super.dispose();
   }
 
@@ -103,13 +105,30 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    controller: _recipientController,
                     decoration: InputDecoration(
-                      hintText: 'Phone number, ID or Name',
+                      hintText: 'Phone number or Account ID',
                       prefixIcon: const Icon(Icons.person_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _RecipientTypeTile(
+                        icon: Icons.phone_android,
+                        label: 'Phone Number',
+                        onTap: () {},
+                      ),
+                      const SizedBox(width: 12),
+                      _RecipientTypeTile(
+                        icon: Icons.badge_outlined,
+                        label: 'Account ID',
+                        onTap: () {},
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -154,6 +173,12 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
+                    if (_recipientController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please specify a recipient'), backgroundColor: Colors.red),
+                      );
+                      return;
+                    }
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Request sent successfully!'),
@@ -176,6 +201,47 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipientTypeTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _RecipientTypeTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00E676).withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF00E676).withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFF00E676)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF00E676),
               ),
             ),
           ],

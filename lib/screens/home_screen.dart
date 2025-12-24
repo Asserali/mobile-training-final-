@@ -337,19 +337,6 @@ class _DashboardTab extends StatelessWidget {
                         },
                       ),
                       _QuickActionButton(
-                        icon: Icons.account_balance_wallet,
-                        label: 'Top-up',
-                        color: const Color(0xFF00E676),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TopUpScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _QuickActionButton(
                         icon: Icons.settings_outlined,
                         label: 'Settings',
                         color: const Color(0xFF00E676),

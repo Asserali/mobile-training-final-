@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
+import '../models/account.dart';
+import '../models/transaction.dart';
 
 class SendMoneyScreen extends StatefulWidget {
   const SendMoneyScreen({super.key});
@@ -12,26 +16,32 @@ class SendMoneyScreen extends StatefulWidget {
 class _SendMoneyScreenState extends State<SendMoneyScreen> {
   final _amountController = TextEditingController(text: '0.00');
   final _descriptionController = TextEditingController();
-  String? _selectedRecipient;
-  final double _balance = 12450.00;
+  final _recipientController = TextEditingController();
+  Account? _selectedAccount;
 
-  final List<Map<String, dynamic>> _recentRecipients = [
-    {'name': 'Mom', 'avatar': '👩', 'color': Colors.orange},
-    {'name': 'John', 'avatar': 'JD', 'color': Colors.blue},
-    {'name': 'Shop', 'avatar': 'S', 'color': Colors.purple},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (appState.accounts.isNotEmpty) {
+      _selectedAccount = appState.selectedAccount ?? appState.accounts.first;
+    }
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    _recipientController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
     final currencyFormat = NumberFormat.currency(symbol: '\$');
-    
+    final double balance = _selectedAccount?.balance ?? 0.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -78,6 +88,7 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                             controller: _amountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             textAlign: TextAlign.center,
+                            onChanged: (value) => setState(() {}),
                             style: const TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.bold,
@@ -96,9 +107,11 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Balance: ${currencyFormat.format(_balance)}',
-                    style: const TextStyle(
-                      color: Color(0xFF00E676),
+                    'Balance: ${currencyFormat.format(balance)}',
+                    style: TextStyle(
+                      color: balance < (double.tryParse(_amountController.text) ?? 0) 
+                          ? Colors.red 
+                          : const Color(0xFF00E676),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -124,146 +137,45 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextField(
+                    controller: _recipientController,
                     decoration: InputDecoration(
-                      hintText: 'Phone number, ID or Name',
+                      hintText: 'Phone number or Account ID',
                       prefixIcon: const Icon(Icons.person_outline),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF00E676)),
                         onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Row(
-                                children: [
-                                  Icon(Icons.qr_code_scanner, color: Color(0xFF00E676)),
-                                  SizedBox(width: 12),
-                                  Text('Scan QR Code'),
-                                ],
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 200,
-                                    height: 200,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.qr_code_scanner, size: 64, color: Colors.grey),
-                                        SizedBox(height: 16),
-                                        Text(
-                                          'QR Scanner',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'Point camera at QR code',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Scan recipient\'s QR code to auto-fill their details',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('QR code scanned successfully!'),
-                                        backgroundColor: Color(0xFF00E676),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF00E676),
-                                  ),
-                                  child: const Text('Done'),
-                                ),
-                              ],
-                            ),
-                          );
+                           // Mock QR Scanner logic
                         },
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey[300]!),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  // Recent Recipients
+                  const Text(
+                    'Quick Selection',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
-                      // New Button
-                      Column(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00E676).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Color(0xFF00E676),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'New',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
+                      _RecipientTypeTile(
+                        icon: Icons.phone_android,
+                        label: 'Phone Number',
+                        onTap: () {
+                          // Change input mode or show phone picker
+                        },
                       ),
                       const SizedBox(width: 16),
-                      ..._recentRecipients.map((recipient) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 16),
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 28,
-                                backgroundColor: recipient['color'],
-                                child: Text(
-                                  recipient['avatar'],
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                recipient['name'],
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                      _RecipientTypeTile(
+                        icon: Icons.badge_outlined,
+                        label: 'Account ID',
+                        onTap: () {
+                          // Change input mode
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -278,36 +190,20 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    children: [
-                      Text(
-                        'Description',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        '(Optional)',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Description (Optional)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _descriptionController,
                     decoration: InputDecoration(
-                      hintText: 'Dinner, Rent, Gift...',
+                      hintText: 'What is this for?',
                       prefixIcon: const Icon(Icons.edit_outlined),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey[300]!),
                       ),
@@ -333,52 +229,29 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(12),
+                  DropdownButtonFormField<Account>(
+                    value: _selectedAccount,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF00E676),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.account_balance_wallet,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                    items: appState.accounts.map((account) {
+                      return DropdownMenuItem(
+                        value: account,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.account_balance_wallet, color: Color(0xFF00E676), size: 20),
+                            const SizedBox(width: 12),
+                            Text(account.name),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Savings Account',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              Text(
-                                '•••• 4821',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.keyboard_arrow_down),
-                      ],
-                    ),
+                      );
+                    }).toList(),
+                    onChanged: (Account? value) {
+                      setState(() {
+                        _selectedAccount = value;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -414,14 +287,45 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Money sent successfully!'),
-                            backgroundColor: Color(0xFF00E676),
-                          ),
+                      onPressed: () async {
+                        final amount = double.tryParse(_amountController.text) ?? 0.0;
+                        if (amount <= 0) return;
+                        if (amount > balance) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Insufficient balance'), backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+                        if (_recipientController.text.isEmpty) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a recipient'), backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+
+                        // Create transaction
+                        final transaction = Transaction(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          accountId: _selectedAccount!.id,
+                          title: 'Sent to ${_recipientController.text}',
+                          amount: amount,
+                          date: DateTime.now(),
+                          type: TransactionType.expense,
+                          category: 'Transfer',
+                          notes: _descriptionController.text,
                         );
-                        Navigator.pop(context);
+
+                        await appState.addTransaction(transaction);
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Money sent successfully!'),
+                              backgroundColor: Color(0xFF00E676),
+                            ),
+                          );
+                          Navigator.pop(context);
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00E676),
@@ -446,6 +350,47 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipientTypeTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _RecipientTypeTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00E676).withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF00E676).withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF00E676)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF00E676),
               ),
             ),
           ],

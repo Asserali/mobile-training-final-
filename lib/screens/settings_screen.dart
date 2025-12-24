@@ -204,18 +204,7 @@ class SettingsScreen extends StatelessWidget {
                     );
                   },
                 ),
-                _SettingsTile(
-                  icon: Icons.language,
-                  title: 'Language',
-                  iconColor: const Color(0xFF00E676),
-                  subtitle: 'English',
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const LanguageDialog(),
-                    );
-                  },
-                ),
+
                 _SettingsTile(
                   icon: Icons.help_outline,
                   title: 'Help Center',
@@ -663,6 +652,20 @@ class _NotificationsDialogState extends State<NotificationsDialog> {
   bool _promotions = false;
 
   @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    final settings = appState.userProfile?['notificationSettings'] as Map<String, dynamic>?;
+    if (settings != null) {
+      _pushNotifications = settings['pushNotifications'] ?? true;
+      _emailNotifications = settings['emailNotifications'] ?? true;
+      _smsNotifications = settings['smsNotifications'] ?? false;
+      _transactionAlerts = settings['transactionAlerts'] ?? true;
+      _promotions = settings['promotions'] ?? false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Notification Settings'),
@@ -715,14 +718,27 @@ class _NotificationsDialogState extends State<NotificationsDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Notification settings saved!'),
-                backgroundColor: Color(0xFF00E676),
-              ),
-            );
+          onPressed: () async {
+            final appState = context.read<AppState>();
+            await appState.updateUserProfile({
+              'notificationSettings': {
+                'pushNotifications': _pushNotifications,
+                'emailNotifications': _emailNotifications,
+                'smsNotifications': _smsNotifications,
+                'transactionAlerts': _transactionAlerts,
+                'promotions': _promotions,
+              }
+            });
+            
+            if (mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Notification settings saved!'),
+                  backgroundColor: Color(0xFF00E676),
+                ),
+              );
+            }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF00E676),
@@ -734,70 +750,4 @@ class _NotificationsDialogState extends State<NotificationsDialog> {
   }
 }
 
-// Language Dialog
-class LanguageDialog extends StatefulWidget {
-  const LanguageDialog({super.key});
 
-  @override
-  State<LanguageDialog> createState() => _LanguageDialogState();
-}
-
-class _LanguageDialogState extends State<LanguageDialog> {
-  String _selectedLanguage = 'English';
-  
-  final List<Map<String, String>> _languages = [
-    {'code': 'en', 'name': 'English', 'flag': '🇺🇸'},
-    {'code': 'ar', 'name': 'العربية', 'flag': '🇪🇬'},
-    {'code': 'fr', 'name': 'Français', 'flag': '🇫🇷'},
-    {'code': 'es', 'name': 'Español', 'flag': '🇪🇸'},
-    {'code': 'de', 'name': 'Deutsch', 'flag': '🇩🇪'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Select Language'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _languages.map((lang) {
-            return RadioListTile<String>(
-              title: Row(
-                children: [
-                  Text(lang['flag']!, style: const TextStyle(fontSize: 24)),
-                  const SizedBox(width: 12),
-                  Text(lang['name']!),
-                ],
-              ),
-              value: lang['name']!,
-              groupValue: _selectedLanguage,
-              onChanged: (value) => setState(() => _selectedLanguage = value!),
-              activeColor: const Color(0xFF00E676),
-            );
-          }).toList(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Language changed to $_selectedLanguage'),
-                backgroundColor: const Color(0xFF00E676),
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00E676),
-          ),
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-}
