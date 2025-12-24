@@ -181,13 +181,19 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                       );
                       return;
                     }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Request sent successfully!'),
-                        backgroundColor: Color(0xFF00E676),
-                      ),
-                    );
-                    Navigator.pop(context);
+                    final appState = context.read<AppState>();
+                    final isAlreadySaved = appState.contacts.any((c) => c['value'] == _recipientController.text);
+                    if (!isAlreadySaved) {
+                      _showSaveContactDialog(context, _recipientController.text);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Request sent successfully!'),
+                          backgroundColor: Color(0xFF00E676),
+                        ),
+                      );
+                      Navigator.pop(context);
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00E676),
@@ -267,6 +273,54 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showSaveContactDialog(BuildContext context, String value) {
+    final nameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save Recipient?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Would you like to save this recipient for future use?'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Contact Name',
+                hintText: 'e.g. Mom, John Doe',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); 
+              Navigator.pop(context); 
+            },
+            child: const Text('No Thanks'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty) {
+                final appState = Provider.of<AppState>(context, listen: false);
+                final type = value.length > 10 ? 'Account ID' : 'Phone';
+                await appState.addContact(nameController.text, value, type);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E676)),
+            child: const Text('Save & Finish'),
+          ),
+        ],
+      ),
     );
   }
 }

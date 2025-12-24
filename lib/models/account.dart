@@ -87,11 +87,10 @@ class Account {
       identical(this, other) ||
       other is Account &&
           runtimeType == other.runtimeType &&
-          id == other.id &&
-          balance == other.balance;
+          id == other.id;
 
   @override
-  int get hashCode => id.hashCode ^ balance.hashCode;
+  int get hashCode => id.hashCode;
 }
 
 enum AccountType {
