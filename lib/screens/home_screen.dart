@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
+import '../widgets/transaction_tile.dart';
 import 'transactions_screen.dart';
 import 'add_transaction_screen.dart';
 import 'analytics_screen.dart';
@@ -414,67 +415,7 @@ class _DashboardTab extends StatelessWidget {
                       ),
                     )
                   else
-                    ...appState.recentTransactions.map((transaction) {
-                      final category = appState.getCategoryById(transaction.category);
-                      final isIncome = transaction.type == TransactionType.income;
-                      
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: (category?.color ?? Colors.grey).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                category?.icon ?? Icons.help_outline,
-                                color: category?.color ?? Colors.grey,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    transaction.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    DateFormat('MMM dd, h:mm a').format(transaction.date),
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '${isIncome ? '+' : '-'}${currencyFormat.format(transaction.amount)}',
-                              style: TextStyle(
-                                color: isIncome ? const Color(0xFF00E676) : Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
+                    ...appState.recentTransactions.map((transaction) => TransactionTile(transaction: transaction)),
                 ],
               ),
             );

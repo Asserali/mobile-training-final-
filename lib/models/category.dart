@@ -116,6 +116,13 @@ class DefaultCategories {
           type: TransactionType.expense,
         ),
         Category(
+          id: 'transfer',
+          name: 'Transfer',
+          icon: Icons.swap_horiz,
+          color: Colors.green,
+          type: TransactionType.expense,
+        ),
+        Category(
           id: 'other_expense',
           name: 'Other',
           icon: Icons.more_horiz,
@@ -151,6 +158,13 @@ class DefaultCategories {
           name: 'Gift',
           icon: Icons.card_giftcard,
           color: Colors.amber,
+          type: TransactionType.income,
+        ),
+        Category(
+          id: 'transfer',
+          name: 'Transfer',
+          icon: Icons.swap_horiz,
+          color: Colors.green,
           type: TransactionType.income,
         ),
         Category(

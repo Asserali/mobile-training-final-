@@ -322,7 +322,7 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                           amount: amount,
                           date: DateTime.now(),
                           type: TransactionType.expense,
-                          category: 'Transfer',
+                          category: 'transfer',
                           notes: _descriptionController.text,
                         );
 

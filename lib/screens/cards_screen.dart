@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/card_model.dart';
 import '../models/notification_model.dart';
+import '../widgets/transaction_tile.dart';
 import 'add_card_screen.dart';
 
 class CardsScreen extends StatefulWidget {
@@ -194,25 +195,43 @@ class _CardsScreenState extends State<CardsScreen> {
             const SizedBox(height: 16),
 
             Expanded(
-              child: Container(
-                color: Colors.white,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        size: 48,
-                        color: Colors.grey[300],
+              child: Builder(
+                builder: (context) {
+                  final cardTransactions = cards.isNotEmpty 
+                    ? appState.transactions.where((t) => t.accountId == cards[_focusedIndex].accountId).toList()
+                    : <Transaction>[];
+                  
+                  if (cardTransactions.isEmpty) {
+                    return Container(
+                      color: Colors.white,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 48,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No card transactions yet',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No card transactions yet',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: cardTransactions.length,
+                    itemBuilder: (context, index) {
+                      return TransactionTile(transaction: cardTransactions[index]);
+                    },
+                  );
+                },
               ),
             ),
           ],

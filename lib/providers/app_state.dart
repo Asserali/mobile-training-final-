@@ -385,7 +385,7 @@ class AppState extends ChangeNotifier {
       await updateAccountBalance(account.id, newBalance);
 
       // Handle P2P Transfer if recipient is specified
-      if (transaction.category == 'Transfer') {
+      if (transaction.category.toLowerCase() == 'transfer') {
         final recipientValue = transaction.title.replaceFirst('Sent to ', '');
         await _handleP2PTransfer(recipientValue, transaction.amount, transaction.notes);
       }
@@ -474,7 +474,7 @@ class AppState extends ChangeNotifier {
           id: DateTime.now().millisecondsSinceEpoch.toString() + '_income',
           title: 'Received from ${_userProfile?['name'] ?? 'Unknown'}',
           amount: amount,
-          category: 'Transfer',
+          category: 'transfer',
           date: DateTime.now(),
           type: TransactionType.income,
           notes: notes,
