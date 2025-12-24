@@ -24,7 +24,7 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
   final _amountController = TextEditingController(text: '0.00');
   final _descriptionController = TextEditingController();
   final _recipientController = TextEditingController();
-  Account? _selectedAccount;
+  String? _selectedAccountId;
 
   @override
   void initState() {
@@ -37,7 +37,7 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
     }
     final appState = Provider.of<AppState>(context, listen: false);
     if (appState.accounts.isNotEmpty) {
-      _selectedAccount = appState.selectedAccount ?? appState.accounts.first;
+      _selectedAccountId = (appState.selectedAccount ?? appState.accounts.first).id;
     }
   }
 
@@ -53,7 +53,13 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final currencyFormat = NumberFormat.currency(symbol: '\$');
-    final double balance = _selectedAccount?.balance ?? 0.0;
+    
+    // Find the selected account object from the list to get the latest balance
+    final selectedAccount = appState.accounts.firstWhere(
+      (a) => a.id == _selectedAccountId,
+      orElse: () => appState.accounts.isNotEmpty ? appState.accounts.first : appState.accounts[0], // fallback which should stay in sync
+    );
+    final double balance = selectedAccount.balance;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -238,8 +244,8 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<Account>(
-                    value: _selectedAccount,
+                  DropdownButtonFormField<String>(
+                    value: _selectedAccountId,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -248,7 +254,7 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                       final card = appState.cards.where((c) => c.accountId == account.id).firstOrNull;
                       final suffix = card != null ? ' (ending with ${card.cardNumber})' : '';
                       return DropdownMenuItem(
-                        value: account,
+                        value: account.id,
                         child: Row(
                           children: [
                             const Icon(Icons.account_balance_wallet, color: Color(0xFF00E676), size: 20),
@@ -258,9 +264,9 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (Account? value) {
+                    onChanged: (String? value) {
                       setState(() {
-                        _selectedAccount = value;
+                        _selectedAccountId = value;
                       });
                     },
                   ),
@@ -314,10 +320,9 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                           return;
                         }
 
-                        // Create transaction
                         final transaction = Transaction(
                           id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          accountId: _selectedAccount!.id,
+                          accountId: _selectedAccountId!,
                           title: 'Sent to ${_recipientController.text}',
                           amount: amount,
                           date: DateTime.now(),
