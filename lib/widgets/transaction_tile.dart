@@ -20,6 +20,27 @@ class TransactionTile extends StatelessWidget {
     final isIncome = transaction.type == TransactionType.income;
     final currencyFormat = NumberFormat.currency(symbol: '\$');
 
+    // derive icon and color if category is missing
+    IconData icon = category?.icon ?? Icons.help_outline;
+    Color iconColor = category?.color ?? Colors.grey;
+
+    if (category == null) {
+      final title = transaction.title.toLowerCase();
+      if (title.contains('sent') || title.contains('transfer') || title.contains('to')) {
+        icon = Icons.swap_horiz;
+        iconColor = Colors.green;
+      } else if (title.contains('received') || title.contains('from')) {
+        icon = Icons.arrow_downward;
+        iconColor = Colors.blue;
+      } else if (title.contains('shopping') || title.contains('amazon')) {
+        icon = Icons.shopping_bag;
+        iconColor = Colors.pink;
+      } else if (title.contains('food') || title.contains('restaurant')) {
+        icon = Icons.restaurant;
+        iconColor = Colors.orange;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -28,9 +49,9 @@ class TransactionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -40,12 +61,12 @@ class TransactionTile extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: (category?.color ?? Colors.grey).withOpacity(0.1),
+              color: iconColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              category?.icon ?? Icons.help_outline,
-              color: category?.color ?? Colors.grey,
+              icon,
+              color: iconColor,
               size: 24,
             ),
           ),

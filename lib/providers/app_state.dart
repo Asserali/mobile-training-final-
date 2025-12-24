@@ -72,10 +72,27 @@ class AppState extends ChangeNotifier {
   }
 
   models.Category? getCategoryById(String id) {
+    if (_categories.isEmpty) return null;
+    
+    final normalizedId = id.toLowerCase().trim();
     try {
-      return _categories.firstWhere((c) => c.id == id);
+      return _categories.firstWhere((c) {
+        final categoryId = c.id.toLowerCase();
+        // Match by ID or Name
+        return categoryId == normalizedId || 
+               c.name.toLowerCase() == normalizedId ||
+               (normalizedId == 'transfer' && categoryId == 'swap_horiz'); // Extra fallback for P2P
+      });
     } catch (e) {
-      return null;
+      // Final fallback: search in default categories if Firestore hasn't synced yet
+      try {
+        return models.DefaultCategories.allCategories.firstWhere((c) {
+          final categoryId = c.id.toLowerCase();
+          return categoryId == normalizedId || c.name.toLowerCase() == normalizedId;
+        });
+      } catch (_) {
+        return null;
+      }
     }
   }
 

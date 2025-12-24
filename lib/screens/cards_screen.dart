@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/card_model.dart';
+import '../models/transaction.dart';
 import '../models/notification_model.dart';
 import '../widgets/transaction_tile.dart';
 import 'add_card_screen.dart';
