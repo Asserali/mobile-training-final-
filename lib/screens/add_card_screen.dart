@@ -345,7 +345,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            final last4 = _cardNumberController.text.substring(_cardNumberController.text.length - 4);
+                            final cardNumber = _cardNumberController.text.replaceAll(' ', '');
                             
                             final expiryParts = _expiryController.text.split('/');
                             final expiryDate = DateTime(
@@ -356,7 +356,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                             final newCard = BankCard(
                               id: DateTime.now().millisecondsSinceEpoch.toString(),
                               accountId: 'pending', // Set by appState.addCard
-                              cardNumber: last4,
+                              cardNumber: cardNumber,
                               cardHolderName: _cardHolderController.text,
                               type: CardType.debit,
                               network: _cardTypes[_selectedCardType]!['network'] as CardNetwork,

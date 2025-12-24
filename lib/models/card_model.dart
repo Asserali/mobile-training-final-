@@ -55,7 +55,8 @@ class BankCard {
   });
 
   String get maskedCardNumber {
-    return '**** **** **** $cardNumber';
+    if (cardNumber.length <= 4) return '**** **** **** $cardNumber';
+    return '**** **** **** ${cardNumber.substring(cardNumber.length - 4)}';
   }
 
   String get expiryDateFormatted {

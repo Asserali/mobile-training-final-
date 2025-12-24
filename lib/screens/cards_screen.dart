@@ -603,7 +603,7 @@ class _CreateVirtualCardSheetState extends State<CreateVirtualCardSheet> {
                   final newCard = BankCard(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     accountId: 'temp', // Will be set by appState.addCard
-                    cardNumber: (1000 + (DateTime.now().millisecond % 9000)).toString(),
+                    cardNumber: List.generate(16, (index) => (index == 0 ? 4 : (DateTime.now().millisecond + index) % 10)).join(),
                     cardHolderName: appState.userProfile?['fullNameEnglish'] ?? 'VALUED CUSTOMER',
                     type: CardType.prepaid,
                     network: CardNetwork.visa,

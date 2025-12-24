@@ -123,6 +123,31 @@ class FirebaseService {
     };
   }
 
+  /// Find user and account by card number
+  Future<Map<String, dynamic>?> findUserByCardNumber(String cardNumber) async {
+    // We use collectionGroup to search across all 'cards' subcollections
+    final query = await _firestore
+        .collectionGroup('cards')
+        .where('cardNumber', isEqualTo: cardNumber)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) return null;
+    
+    final cardDoc = query.docs.first;
+    final accountId = cardDoc.data()['accountId'] as String;
+    // The user ID is the parent of the cards collection (users/{uid}/cards/{cardId})
+    final uid = cardDoc.reference.parent.parent!.id;
+    
+    final userDoc = await _firestore.collection('users').doc(uid).get();
+    
+    return {
+      'uid': uid,
+      'accountId': accountId,
+      'userData': userDoc.data(),
+    };
+  }
+
   // Transaction Methods
 
   /// Add transaction
@@ -151,6 +176,36 @@ class FirebaseService {
         .collection('transactions')
         .doc(transaction.id)
         .update(transaction.toFirestore());
+  }
+
+  /// Update account balance directly for P2P
+  Future<void> updateAccountBalanceDirect(String uid, String accountId, double amount) async {
+    final accountRef = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('accounts')
+        .doc(accountId);
+    
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(accountRef);
+      if (!snapshot.exists) return;
+      
+      final currentBalance = (snapshot.data()?['balance'] as num).toDouble();
+      transaction.update(accountRef, {'balance': currentBalance + amount});
+    });
+  }
+
+  /// Get specific account
+  Future<Account?> getAccountById(String uid, String accountId) async {
+    final doc = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('accounts')
+        .doc(accountId)
+        .get();
+    
+    if (!doc.exists) return null;
+    return Account.fromFirestore(doc);
   }
 
   /// Delete transaction

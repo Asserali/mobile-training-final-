@@ -59,6 +59,7 @@ class AppState extends ChangeNotifier {
   BankCard? get activeCard => _activeCard;
   Map<String, dynamic>? get userProfile => _userProfile;
   bool get showBalance => _showBalance;
+  Account? get account => _selectedAccount; // Fallback for legacy code
 
   double get totalBalance {
     return _accounts.fold(0.0, (sum, account) => sum + account.balance);
@@ -370,11 +371,6 @@ class AppState extends ChangeNotifier {
           );
           await _firebase.updateCard(updatedCard);
         }
-      } catch (e) {
-        debugPrint('Error in limit/freeze validation: $e');
-        // If it was a critical validation error that returned, we don't reach here.
-        // If it was just "no card found", we continue.
-      }
 
       final newBalance = transaction.type == TransactionType.income
           ? account.balance + transaction.amount
@@ -417,9 +413,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> _handleP2PTransfer(String recipient, double amount, String? notes) async {
     try {
-      // 1. Find user by Phone or Account ID (UID)
+      // 1. Find user by Phone, Card Number, National ID, or Account ID (UID)
       Map<String, dynamic>? targetUser;
       String? targetUid;
+      String? targetAccountId;
 
       // Try searching by phone first (Egyptian format)
       if (recipient.startsWith('01') && recipient.length == 11) {
@@ -430,7 +427,17 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      // If not found by phone, try searching by National ID / Account ID (numeric)
+      // Try searching by Card Number (16 digits)
+      if (targetUid == null && recipient.replaceAll(' ', '').length == 16) {
+        final result = await _firebase.findUserByCardNumber(recipient.replaceAll(' ', ''));
+        if (result != null) {
+          targetUid = result['uid'];
+          targetAccountId = result['accountId'];
+          targetUser = result['userData'];
+        }
+      }
+
+      // If not found by phone/card, try searching by National ID / Account ID (numeric)
       if (targetUid == null && RegExp(r'^\d+$').hasMatch(recipient)) {
         final result = await _firebase.findUserByNationalId(recipient);
         if (result != null) {
@@ -449,33 +456,33 @@ class AppState extends ChangeNotifier {
       }
 
       if (targetUid != null) {
-        // 2. Add income transaction to recipient
+        // 2. Create income transaction for recipient
         final incomeTransaction = Transaction(
-          id: 'rec_${DateTime.now().millisecondsSinceEpoch}',
-          accountId: 'main', // Default to their main account
+          id: DateTime.now().millisecondsSinceEpoch.toString() + '_income',
           title: 'Received from ${_userProfile?['name'] ?? 'Unknown'}',
           amount: amount,
+          category: 'Transfer',
           date: DateTime.now(),
           type: TransactionType.income,
-          category: 'Transfer',
           notes: notes,
+          accountId: targetAccountId ?? 'main', // Default to 'main' if not found by card
         );
 
         await _firebase.addTransactionToUser(targetUid, incomeTransaction);
         
-        // 3. Update recipient balance (this is tricky because we don't know their account IDs easily)
-        // For simulation, we'll assume they have a 'main' account or we just record the transaction.
-        // A real system would have a more complex ledger.
-        
+        // 3. Update recipient balance in Firestore
+        // We use the new direct update method to ensure it's recorded in the database
+        await _firebase.updateAccountBalanceDirect(targetUid, incomeTransaction.accountId, amount);
+
         // 4. Send notification to recipient
         await _firebase.addNotificationToUser(targetUid, NotificationItem(
-          id: 'not_${DateTime.now().millisecondsSinceEpoch}',
+          id: DateTime.now().millisecondsSinceEpoch.toString() + '_notif',
           icon: Icons.account_balance_wallet,
           iconColor: Colors.green,
           title: 'Money Received',
           message: 'You received \$${amount.toStringAsFixed(2)} from ${_userProfile?['name'] ?? 'Unknown'}',
           time: DateTime.now(),
-          category: 'Transfer',
+          category: 'Transactions',
         ));
         
         debugPrint('P2P Transfer successful to $targetUid');
@@ -483,7 +490,56 @@ class AppState extends ChangeNotifier {
         debugPrint('Recipient $recipient not found in system - transaction remains local');
       }
     } catch (e) {
-      debugPrint('Error in P2P transfer logic: $e');
+      debugPrint('Error in P2P transfer: $e');
+    }
+  }
+
+  Future<void> requestMoney(String recipient, double amount, String? reason) async {
+    try {
+      _setLoading(true);
+      // 1. Find user by Phone, Card, ID, or UID
+      String? targetUid;
+
+      // Try phone
+      if (recipient.startsWith('01') && recipient.length == 11) {
+        final result = await _firebase.findUserByPhone(recipient);
+        targetUid = result?['uid'];
+      }
+
+      // Try Card (16 digits)
+      if (targetUid == null && recipient.replaceAll(' ', '').length == 16) {
+        final result = await _firebase.findUserByCardNumber(recipient.replaceAll(' ', ''));
+        targetUid = result?['uid'];
+      }
+
+      // Try National ID
+      if (targetUid == null && RegExp(r'^\d+$').hasMatch(recipient)) {
+        final result = await _firebase.findUserByNationalId(recipient);
+        targetUid = result?['uid'];
+      }
+
+      // Try UID
+      if (targetUid == null) {
+        final result = await _firebase.getUserProfileById(recipient);
+        if (result != null) targetUid = recipient;
+      }
+
+      if (targetUid != null) {
+        // 2. Send request notification to recipient
+        await _firebase.addNotificationToUser(targetUid, NotificationItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + '_req',
+          icon: Icons.payments_outlined,
+          iconColor: Colors.blue,
+          title: 'Payment Request',
+          message: '${_userProfile?['name'] ?? 'Someone'} requested \$${amount.toStringAsFixed(2)}${reason != null && reason.isNotEmpty ? ' for $reason' : ''}',
+          time: DateTime.now(),
+          category: 'Requests',
+        ));
+      }
+    } catch (e) {
+      _setError('Failed to request money: $e');
+    } finally {
+      _setLoading(false);
     }
   }
 

@@ -181,7 +181,16 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                       );
                       return;
                     }
+                    
                     final appState = context.read<AppState>();
+                    final amount = double.tryParse(_amountController.text) ?? 0.0;
+                    
+                    appState.requestMoney(
+                      _recipientController.text,
+                      amount,
+                      _descriptionController.text,
+                    );
+
                     final isAlreadySaved = appState.contacts.any((c) => c['value'] == _recipientController.text);
                     if (!isAlreadySaved) {
                       _showSaveContactDialog(context, _recipientController.text);
