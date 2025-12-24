@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
+import '../models/notification_model.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final notifications = _getNotifications();
+    final appState = Provider.of<AppState>(context);
+    final notifications = appState.notifications;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -20,14 +24,7 @@ class NotificationsScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('All notifications marked as read'),
-                  backgroundColor: Color(0xFF00E676),
-                ),
-              );
-            },
+            onPressed: () => appState.markAllNotificationsAsRead(),
             child: const Text('Mark all read'),
           ),
         ],
@@ -68,95 +65,6 @@ class NotificationsScreen extends StatelessWidget {
             ),
     );
   }
-
-  List<NotificationItem> _getNotifications() {
-    final now = DateTime.now();
-    return [
-      NotificationItem(
-        icon: Icons.celebration,
-        iconColor: const Color(0xFF00E676),
-        title: 'Welcome to Banking App!',
-        message: 'Your account has been successfully created. Start managing your finances today.',
-        time: now.subtract(const Duration(minutes: 5)),
-        isRead: false,
-        category: 'System',
-      ),
-      NotificationItem(
-        icon: Icons.credit_card,
-        iconColor: Colors.blue,
-        title: 'Card Added Successfully',
-        message: 'Your Visa card ending in 4821 has been added to your account.',
-        time: now.subtract(const Duration(hours: 2)),
-        isRead: false,
-        category: 'Cards',
-      ),
-      NotificationItem(
-        icon: Icons.arrow_upward,
-        iconColor: Colors.red,
-        title: 'Transaction Alert',
-        message: 'You spent \$45.99 at Grocery Store',
-        time: now.subtract(const Duration(hours: 5)),
-        isRead: true,
-        category: 'Transactions',
-      ),
-      NotificationItem(
-        icon: Icons.security,
-        iconColor: const Color(0xFF00E676),
-        title: 'Security Update',
-        message: 'Your account security has been enhanced with two-factor authentication.',
-        time: now.subtract(const Duration(days: 1)),
-        isRead: true,
-        category: 'Security',
-      ),
-      NotificationItem(
-        icon: Icons.trending_up,
-        iconColor: Colors.orange,
-        title: 'Monthly Report Ready',
-        message: 'Your spending analysis for this month is now available.',
-        time: now.subtract(const Duration(days: 2)),
-        isRead: true,
-        category: 'Analytics',
-      ),
-      NotificationItem(
-        icon: Icons.arrow_downward,
-        iconColor: const Color(0xFF00E676),
-        title: 'Money Received',
-        message: 'You received \$200.00 from John Doe',
-        time: now.subtract(const Duration(days: 3)),
-        isRead: true,
-        category: 'Transactions',
-      ),
-      NotificationItem(
-        icon: Icons.ac_unit,
-        iconColor: Colors.blue,
-        title: 'Card Frozen',
-        message: 'Your Mastercard has been temporarily frozen for security.',
-        time: now.subtract(const Duration(days: 5)),
-        isRead: true,
-        category: 'Cards',
-      ),
-    ];
-  }
-}
-
-class NotificationItem {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String message;
-  final DateTime time;
-  final bool isRead;
-  final String category;
-
-  NotificationItem({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.isRead,
-    required this.category,
-  });
 }
 
 class _NotificationCard extends StatelessWidget {
@@ -166,6 +74,7 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context, listen: false);
     final timeAgo = _getTimeAgo(notification.time);
 
     return Container(
@@ -257,13 +166,9 @@ class _NotificationCard extends StatelessWidget {
           ],
         ),
         onTap: () {
-          // Mark as read
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Notification marked as read'),
-              duration: Duration(seconds: 1),
-            ),
-          );
+          if (!notification.isRead) {
+            appState.markNotificationAsRead(notification.id);
+          }
         },
       ),
     );

@@ -3,10 +3,31 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/card_model.dart';
+import '../models/notification_model.dart';
 import 'add_card_screen.dart';
 
-class CardsScreen extends StatelessWidget {
+class CardsScreen extends StatefulWidget {
   const CardsScreen({super.key});
+
+  @override
+  State<CardsScreen> createState() => _CardsScreenState();
+}
+
+class _CardsScreenState extends State<CardsScreen> {
+  int _focusedIndex = 0;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.9);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +97,13 @@ class CardsScreen extends StatelessWidget {
                 height: 220,
                 child: PageView.builder(
                   padEnds: false,
-                  controller: PageController(viewportFraction: 0.9),
+                  controller: _pageController,
                   itemCount: cards.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _focusedIndex = index;
+                    });
+                  },
                   itemBuilder: (context, index) {
                     final card = cards[index];
                     return _buildCard(
@@ -98,19 +124,31 @@ class CardsScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildQuickAction(
-                        icon: appState.activeCard?.status == CardStatus.frozen
+                        icon: cards[_focusedIndex].status == CardStatus.frozen
                             ? Icons.lock_open_outlined
                             : Icons.lock_outline,
-                        label: appState.activeCard?.status == CardStatus.frozen
+                        label: cards[_focusedIndex].status == CardStatus.frozen
                             ? 'Unfreeze Card'
                             : 'Freeze Card',
                         onTap: () {
-                          if (appState.activeCard == null) return;
-                          final isFrozen = appState.activeCard!.status == CardStatus.frozen;
-                          final updatedCard = appState.activeCard!.copyWith(
+                          final selectedCard = cards[_focusedIndex];
+                          final isFrozen = selectedCard.status == CardStatus.frozen;
+                          final updatedCard = selectedCard.copyWith(
                             status: isFrozen ? CardStatus.active : CardStatus.frozen,
                           );
                           appState.updateCard(updatedCard);
+                          
+                          // Add notification
+                          appState.addNotification(NotificationItem(
+                            id: DateTime.now().millisecondsSinceEpoch.toString(),
+                            icon: isFrozen ? Icons.lock_open : Icons.lock,
+                            iconColor: Colors.blue,
+                            title: isFrozen ? 'Card Unfrozen' : 'Card Frozen',
+                            message: 'Your ${selectedCard.network.name} card ending in ${selectedCard.cardNumber.substring(selectedCard.cardNumber.length - 4)} has been ${isFrozen ? 'unfrozen' : 'frozen'}.',
+                            time: DateTime.now(),
+                            category: 'Cards',
+                          ));
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(isFrozen ? 'Card unfrozen!' : 'Card frozen!'),
@@ -190,6 +228,15 @@ class CardsScreen extends StatelessWidget {
     final currencyFormat = NumberFormat.currency(symbol: '\$');
     final appState = Provider.of<AppState>(context, listen: false);
     final isDefault = card.isDefault;
+    
+    // Get specific account balance for this card
+    double cardBalance = 0.0;
+    try {
+      final account = appState.accounts.firstWhere((a) => a.id == card.accountId);
+      cardBalance = account.balance;
+    } catch (e) {
+      cardBalance = 0.0;
+    }
 
     return GestureDetector(
       onLongPress: () {
@@ -274,7 +321,7 @@ class CardsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      currencyFormat.format(appState.totalBalance),
+                      '\$${cardBalance.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -283,7 +330,7 @@ class CardsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      card.status == CardStatus.frozen ? 'CARD FROZEN' : 'Current Balance',
+                      card.status == CardStatus.frozen ? 'CARD FROZEN' : 'Card Balance',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -389,12 +436,13 @@ class CreateVirtualCardSheet extends StatefulWidget {
 
 class _CreateVirtualCardSheetState extends State<CreateVirtualCardSheet> {
   String _expiryPeriod = '24h';
-  double _spendingLimit = 1000.0;
   final _limitController = TextEditingController(text: '1000');
+  final _balanceController = TextEditingController(text: '500');
 
   @override
   void dispose() {
     _limitController.dispose();
+    _balanceController.dispose();
     super.dispose();
   }
 
@@ -409,168 +457,189 @@ class _CreateVirtualCardSheetState extends State<CreateVirtualCardSheet> {
         right: 24,
         top: 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00E676).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.credit_card,
+                    color: Color(0xFF00E676),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.credit_card,
-                  color: Color(0xFF00E676),
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Create Virtual Card',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Create Virtual Card',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Temporary card for online shopping',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
+                      Text(
+                        'Temporary card for online shopping',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          
-          const Text(
-            'Valid For',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: DropdownButtonFormField<String>(
-              value: _expiryPeriod,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              items: const [
-                DropdownMenuItem(value: '24h', child: Text('24 Hours')),
-                DropdownMenuItem(value: '7d', child: Text('7 Days')),
-                DropdownMenuItem(value: '30d', child: Text('30 Days')),
               ],
-              onChanged: (value) => setState(() => _expiryPeriod = value!),
             ),
-          ),
-          const SizedBox(height: 16),
-          
-          const Text(
-            'Spending Limit',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+            const SizedBox(height: 24),
+            
+            const Text(
+              'Valid For',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _limitController,
-            decoration: InputDecoration(
-              prefixText: '\$ ',
-              border: OutlineInputBorder(
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(12),
               ),
-              hintText: '1000',
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              _spendingLimit = double.tryParse(value) ?? 1000.0;
-            },
-          ),
-          const SizedBox(height: 24),
-          
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Virtual cards are perfect for online shopping. They expire automatically and can be deleted anytime.',
-                    style: TextStyle(fontSize: 12),
-                  ),
+              child: DropdownButtonFormField<String>(
+                value: _expiryPeriod,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Create virtual card logic
-                final newCard = BankCard(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  accountId: appState.accounts.isNotEmpty ? appState.accounts.first.id : 'default',
-                  cardNumber: (1000 + (DateTime.now().millisecond % 9000)).toString(),
-                  cardHolderName: appState.userProfile?['fullNameEnglish'] ?? 'VALUED CUSTOMER',
-                  type: CardType.prepaid,
-                  network: CardNetwork.visa,
-                  expiryDate: DateTime.now().add(const Duration(days: 1)), // Simple 24h fallback
-                  isVirtual: true,
-                  cardColor: Colors.deepPurple,
-                );
-                appState.addCard(newCard);
-                
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Virtual card created!'),
-                    backgroundColor: const Color(0xFF00E676),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.add),
-              label: const Text(
-                'Create Virtual Card',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00E676),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                items: const [
+                  DropdownMenuItem(value: '24h', child: Text('24 Hours')),
+                  DropdownMenuItem(value: '7d', child: Text('7 Days')),
+                  DropdownMenuItem(value: '30d', child: Text('30 Days')),
+                ],
+                onChanged: (value) => setState(() => _expiryPeriod = value!),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 16),
+            
+            const Text(
+              'Initial Balance',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _balanceController,
+              decoration: InputDecoration(
+                prefixText: '\$ ',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                hintText: '500',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+
+            const Text(
+              'Daily Spending Limit',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _limitController,
+              decoration: InputDecoration(
+                prefixText: '\$ ',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                hintText: '1000',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 24),
+            
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Virtual cards are perfect for online shopping. They expire automatically and can be deleted anytime.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final initialBalance = double.tryParse(_balanceController.text) ?? 500.0;
+                  
+                  final newCard = BankCard(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    accountId: 'temp', // Will be set by appState.addCard
+                    cardNumber: (1000 + (DateTime.now().millisecond % 9000)).toString(),
+                    cardHolderName: appState.userProfile?['fullNameEnglish'] ?? 'VALUED CUSTOMER',
+                    type: CardType.prepaid,
+                    network: CardNetwork.visa,
+                    expiryDate: DateTime.now().add(const Duration(days: 1)),
+                    isVirtual: true,
+                    cardColor: Colors.deepPurple,
+                  );
+                  appState.addCard(newCard, initialBalance: initialBalance);
+                  
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Virtual card created!'),
+                      backgroundColor: Color(0xFF00E676),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add),
+                label: const Text(
+                  'Create Virtual Card',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E676),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

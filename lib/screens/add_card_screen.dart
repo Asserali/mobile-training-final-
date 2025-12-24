@@ -17,6 +17,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final _cardNumberController = TextEditingController();
   final _expiryController = TextEditingController();
   final _cvvController = TextEditingController();
+  final _balanceController = TextEditingController(text: '0');
   
   String _selectedCardType = 'visa';
   
@@ -47,6 +48,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
     _cardNumberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
+    _balanceController.dispose();
     super.dispose();
   }
 
@@ -124,8 +126,16 @@ class _AddCardScreenState extends State<AddCardScreen> {
                         ),
                       ),
                       const Text(
-                        '\$00.00',
+                        'BALANCE',
                         style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      Text(
+                        '\$${(double.tryParse(_balanceController.text) ?? 0).toStringAsFixed(2)}',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -316,18 +326,14 @@ class _AddCardScreenState extends State<AddCardScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: TextFormField(
-                            controller: _cvvController,
+                            controller: _balanceController,
                             decoration: InputDecoration(
-                              hintText: 'CVV',
+                              hintText: 'Initial Balance',
+                              prefixText: '\$ ',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            obscureText: true,
                             keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(3),
-                            ],
-                            validator: (value) => (value == null || value.length < 3) ? 'Invalid' : null,
+                            onChanged: (value) => setState(() {}),
                           ),
                         ),
                       ],
@@ -349,16 +355,18 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
                             final newCard = BankCard(
                               id: DateTime.now().millisecondsSinceEpoch.toString(),
-                              accountId: appState.accounts.isNotEmpty ? appState.accounts.first.id : 'default',
+                              accountId: 'pending', // Set by appState.addCard
                               cardNumber: last4,
                               cardHolderName: _cardHolderController.text,
                               type: CardType.debit,
                               network: _cardTypes[_selectedCardType]!['network'] as CardNetwork,
                               expiryDate: expiryDate,
                               cardColor: _cardTypes[_selectedCardType]!['color'] as Color,
+                              isVirtual: false,
                             );
 
-                            await appState.addCard(newCard);
+                            final initialBalance = double.tryParse(_balanceController.text) ?? 0.0;
+                            await appState.addCard(newCard, initialBalance: initialBalance);
 
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

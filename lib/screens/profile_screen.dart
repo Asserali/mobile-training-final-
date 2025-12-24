@@ -128,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
                         child: _buildStatCard(
                           icon: Icons.account_balance_wallet,
                           label: 'Balance',
-                          value: '\$12,450',
+                          value: '\$${appState.totalBalance.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
                           color: const Color(0xFF00E676),
                         ),
                       ),
@@ -137,7 +137,7 @@ class ProfileScreen extends StatelessWidget {
                         child: _buildStatCard(
                           icon: Icons.credit_card,
                           label: 'Cards',
-                          value: '3',
+                          value: appState.cards.length.toString(),
                           color: Colors.blue,
                         ),
                       ),
@@ -358,7 +358,14 @@ class EditPhoneDialog extends StatefulWidget {
 }
 
 class _EditPhoneDialogState extends State<EditPhoneDialog> {
-  final _phoneController = TextEditingController(text: '+20 101 234 5678');
+  late TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    _phoneController = TextEditingController(text: appState.userProfile?['phoneNumber'] ?? '');
+  }
 
   @override
   void dispose() {
@@ -402,7 +409,10 @@ class _EditPhoneDialogState extends State<EditPhoneDialog> {
           onPressed: () {
             // Validate Egyptian phone number
             final phone = _phoneController.text.replaceAll(' ', '');
-            if (phone.startsWith('+20') && phone.length >= 13) {
+            if (phone.length >= 11) {
+              Provider.of<AppState>(context, listen: false).updateUserProfile({
+                'phoneNumber': _phoneController.text,
+              });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -438,9 +448,18 @@ class EditAddressDialog extends StatefulWidget {
 }
 
 class _EditAddressDialogState extends State<EditAddressDialog> {
-  String _governorate = 'Cairo';
-  final _cityController = TextEditingController(text: 'Nasr City');
-  final _streetController = TextEditingController(text: '123 Main Street');
+  late String _governorate;
+  late TextEditingController _cityController;
+  late TextEditingController _streetController;
+
+  @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    _governorate = appState.userProfile?['governorate'] ?? 'Cairo';
+    _cityController = TextEditingController(text: appState.userProfile?['city'] ?? '');
+    _streetController = TextEditingController(text: appState.userProfile?['street'] ?? '');
+  }
 
   final List<String> _governorates = [
     'Cairo',
@@ -528,6 +547,11 @@ class _EditAddressDialogState extends State<EditAddressDialog> {
         ),
         ElevatedButton(
           onPressed: () {
+            Provider.of<AppState>(context, listen: false).updateUserProfile({
+              'governorate': _governorate,
+              'city': _cityController.text,
+              'street': _streetController.text,
+            });
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

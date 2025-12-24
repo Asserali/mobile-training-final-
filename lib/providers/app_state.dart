@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../models/transaction.dart';
@@ -6,6 +7,7 @@ import '../models/category.dart' as models;
 import '../models/budget.dart';
 import '../models/card_model.dart';
 import '../services/firebase_service.dart';
+import '../models/notification_model.dart';
 
 class AppState extends ChangeNotifier {
   final FirebaseService _firebase = FirebaseService();
@@ -16,6 +18,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _categoriesSubscription;
   StreamSubscription? _budgetsSubscription;
   StreamSubscription? _cardsSubscription;
+  StreamSubscription? _notificationsSubscription;
   StreamSubscription? _authSubscription;
 
   // Authentication
@@ -28,8 +31,9 @@ class AppState extends ChangeNotifier {
   List<models.Category> _categories = [];
   List<Budget> _budgets = [];
   List<BankCard> _cards = [];
+  List<NotificationItem> _notifications = [];
   Map<String, dynamic>? _userProfile;
-
+  
   // UI State
   bool _isLoading = false;
   String? _error;
@@ -44,6 +48,7 @@ class AppState extends ChangeNotifier {
   List<models.Category> get categories => _categories;
   List<Budget> get budgets => _budgets;
   List<BankCard> get cards => _cards;
+  List<NotificationItem> get notifications => _notifications;
   bool get isLoading => _isLoading;
   String? get error => _error;
   Account? get selectedAccount => _selectedAccount;
@@ -51,14 +56,6 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? get userProfile => _userProfile;
 
   double get totalBalance {
-    if (_activeCard != null) {
-      try {
-        final account = _accounts.firstWhere((a) => a.id == _activeCard!.accountId);
-        return account.balance;
-      } catch (e) {
-        return _accounts.isNotEmpty ? _accounts.first.balance : 0.0;
-      }
-    }
     return _accounts.fold(0.0, (sum, account) => sum + account.balance);
   }
 
@@ -206,6 +203,14 @@ class AppState extends ChangeNotifier {
       },
       onError: (e) => debugPrint('Cards error: $e'),
     );
+
+    _notificationsSubscription = _firebase.getNotifications().listen(
+      (notifications) {
+        _notifications = notifications;
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('Notifications error: $e'),
+    );
   }
 
   void _cancelDataListeners() {
@@ -214,6 +219,7 @@ class AppState extends ChangeNotifier {
     _categoriesSubscription?.cancel();
     _budgetsSubscription?.cancel();
     _cardsSubscription?.cancel();
+    _notificationsSubscription?.cancel();
   }
 
   void _clearData() {
@@ -222,6 +228,7 @@ class AppState extends ChangeNotifier {
     _categories = [];
     _budgets = [];
     _cards = [];
+    _notifications = [];
     _selectedAccount = null;
     _activeCard = null;
     _userProfile = null;
@@ -324,6 +331,17 @@ class AppState extends ChangeNotifier {
 
       await _firebase.addTransaction(transaction);
       await updateAccountBalance(account.id, newBalance);
+
+      // Add Notification
+      await addNotification(NotificationItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        icon: transaction.type == TransactionType.income ? Icons.arrow_downward : Icons.arrow_upward,
+        iconColor: transaction.type == TransactionType.income ? Colors.green : Colors.red,
+        title: 'Transaction Alert',
+        message: 'You ${transaction.type == TransactionType.income ? 'received' : 'spent'} \$${transaction.amount.toStringAsFixed(2)} at ${transaction.title}',
+        time: DateTime.now(),
+        category: 'Transactions',
+      ));
     } catch (e) {
       _setError('Failed to add transaction: $e');
     }
@@ -370,13 +388,37 @@ class AppState extends ChangeNotifier {
   }
 
   // Card operations
-  Future<void> addCard(BankCard card) async {
+  Future<void> addCard(BankCard card, {double initialBalance = 0.0}) async {
     try {
-      BankCard cardToAdd = card;
-      if (_cards.isEmpty) {
-        cardToAdd = card.copyWith(isDefault: true);
-      }
+      // 1. Create separate account for this card if requested
+      final accountId = 'acc_card_${DateTime.now().millisecondsSinceEpoch}';
+      final newAccount = Account(
+        id: accountId,
+        name: '${card.network.name.toUpperCase()} Card Account',
+        balance: initialBalance,
+        type: AccountType.checking,
+        createdAt: DateTime.now(),
+      );
+      await addAccount(newAccount);
+
+      // 2. Link card to new account
+      BankCard cardToAdd = card.copyWith(
+        accountId: accountId,
+        isDefault: _cards.isEmpty,
+      );
+      
       await _firebase.addCard(cardToAdd);
+
+      // 3. Add Notification
+      await addNotification(NotificationItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        icon: Icons.credit_card,
+        iconColor: Colors.blue,
+        title: 'Card Added Successfully',
+        message: 'Your ${card.network.name} card ending in ${card.cardNumber.substring(card.cardNumber.length - 4)} has been added.',
+        time: DateTime.now(),
+        category: 'Cards',
+      ));
     } catch (e) {
       _setError('Failed to add card: $e');
     }
@@ -425,6 +467,43 @@ class AppState extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading profile: $e');
+    }
+  }
+
+  Future<void> updateUserProfile(Map<String, dynamic> data) async {
+    try {
+      _setLoading(true);
+      await _firebase.updateUserProfile(data);
+      await loadUserProfile();
+    } catch (e) {
+      _setError('Failed to update profile: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Notification operations
+  Future<void> addNotification(NotificationItem notification) async {
+    try {
+      await _firebase.addNotification(notification);
+    } catch (e) {
+      debugPrint('Error adding notification: $e');
+    }
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    try {
+      await _firebase.markNotificationAsRead(id);
+    } catch (e) {
+      debugPrint('Error marking notification as read: $e');
+    }
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    try {
+      await _firebase.markAllNotificationsAsRead();
+    } catch (e) {
+      debugPrint('Error marking all as read: $e');
     }
   }
 

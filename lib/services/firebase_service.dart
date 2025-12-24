@@ -5,6 +5,7 @@ import '../models/account.dart';
 import '../models/budget.dart';
 import '../models/card_model.dart';
 import '../models/category.dart';
+import '../models/notification_model.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
@@ -345,5 +346,65 @@ class FirebaseService {
         .map((snapshot) => snapshot.docs
             .map((doc) => BankCard.fromFirestore(doc))
             .toList());
+  }
+
+  // Notification Methods
+
+  /// Add notification
+  Future<void> addNotification(NotificationItem notification) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+    
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('notifications')
+        .doc(notification.id)
+        .set(notification.toMap());
+  }
+
+  /// Get all notifications
+  Stream<List<NotificationItem>> getNotifications() {
+    if (currentUserId == null) return Stream.value([]);
+    
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('notifications')
+        .orderBy('time', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationItem.fromMap(doc.data()))
+            .toList());
+  }
+
+  /// Mark notification as read
+  Future<void> markNotificationAsRead(String notificationId) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+    
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+
+  /// Mark all notifications as read
+  Future<void> markAllNotificationsAsRead() async {
+    if (currentUserId == null) throw Exception('No user logged in');
+    
+    final batch = _firestore.batch();
+    final notifications = await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .get();
+        
+    for (var doc in notifications.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    
+    await batch.commit();
   }
 }
