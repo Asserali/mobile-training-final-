@@ -175,7 +175,7 @@ class _DashboardTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Ahmed',
+                            appState.userProfile?['fullNameEnglish']?.split(' ').first ?? 'User',
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 import 'add_card_screen.dart';
 
 class CardsScreen extends StatelessWidget {
@@ -7,6 +9,8 @@ class CardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
@@ -50,7 +54,7 @@ class CardsScreen extends StatelessWidget {
                   _buildCard(
                     context,
                     cardNumber: '4821',
-                    cardHolder: 'AHMED MOHAMED',
+                    cardHolder: appState.userProfile?['fullNameEnglish']?.toUpperCase() ?? 'CARDHOLDER NAME',
                     expiryDate: '12/25',
                     balance: 12450.00,
                     colors: [const Color(0xFF00E676), const Color(0xFF00C853)],
@@ -59,7 +63,7 @@ class CardsScreen extends StatelessWidget {
                   _buildCard(
                     context,
                     cardNumber: '7392',
-                    cardHolder: 'AHMED MOHAMED',
+                    cardHolder: appState.userProfile?['fullNameEnglish']?.toUpperCase() ?? 'CARDHOLDER NAME',
                     expiryDate: '08/26',
                     balance: 5230.00,
                     colors: [const Color(0xFF1E88E5), const Color(0xFF1565C0)],
@@ -68,7 +72,7 @@ class CardsScreen extends StatelessWidget {
                   _buildCard(
                     context,
                     cardNumber: '1547',
-                    cardHolder: 'AHMED MOHAMED',
+                    cardHolder: appState.userProfile?['fullNameEnglish']?.toUpperCase() ?? 'CARDHOLDER NAME',
                     expiryDate: '03/27',
                     balance: 8900.00,
                     colors: [const Color(0xFFFF6F00), const Color(0xFFE65100)],

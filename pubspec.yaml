@@ -28,10 +28,10 @@ dependencies:
   # UI
   cupertino_icons: ^1.0.6
   
-  # Firebase - Using stable versions for web compatibility
-  firebase_core: ^2.24.0
-  firebase_auth: ^4.15.0
-  cloud_firestore: ^4.13.0
+  # Firebase - Using latest stable versions for web compatibility
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.5.2
 
 dev_dependencies:
   flutter_test:

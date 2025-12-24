@@ -10,6 +10,8 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final appState = Provider.of<AppState>(context); // Get AppState
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -34,9 +36,9 @@ class SettingsScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: const Color(0xFF00E676).withOpacity(0.2),
-                      child: const Text(
-                        'A',
-                        style: TextStyle(
+                      child: Text(
+                        appState.userProfile?['fullNameEnglish']?.substring(0, 1).toUpperCase() ?? 'U',
+                        style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF00E676),
@@ -62,20 +64,20 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Ahmed Mohamed',
-                        style: TextStyle(
+                        appState.userProfile?['fullNameEnglish'] ?? 'User Name',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'ahmed@example.com',
+                        appState.userProfile?['email'] ?? 'No email',
                         style: TextStyle(
                           color: Colors.grey,
                           fontSize: 14,

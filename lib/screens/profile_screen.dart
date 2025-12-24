@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -6,6 +8,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
@@ -35,11 +39,11 @@ class ProfileScreen extends StatelessWidget {
                               width: 4,
                             ),
                           ),
-                          child: const CircleAvatar(
+                          child: CircleAvatar(
                             radius: 50,
                             backgroundColor: Colors.white,
                             child: Text(
-                              'A',
+                              appState.userProfile?['fullNameEnglish']?.substring(0, 1).toUpperCase() ?? 'U',
                               style: TextStyle(
                                 fontSize: 40,
                                 fontWeight: FontWeight.bold,
@@ -67,8 +71,8 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Ahmed Mohamed',
+                    Text(
+                      appState.userProfile?['fullNameEnglish'] ?? 'User Name',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -76,8 +80,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'ahmed.mohamed@example.com',
+                    Text(
+                      appState.userProfile?['email'] ?? 'No email',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -163,7 +167,7 @@ class ProfileScreen extends StatelessWidget {
                     _buildProfileOption(
                       icon: Icons.badge_outlined,
                       title: 'National ID',
-                      subtitle: '299120112*****',
+                      subtitle: appState.userProfile?['nationalId']?.replaceRange(0, 9, '*********') ?? '*************',
                       onTap: () {
                         showDialog(
                           context: context,
@@ -175,12 +179,12 @@ class ProfileScreen extends StatelessWidget {
                                 Text('National ID'),
                               ],
                             ),
-                            content: const Column(
+                            content: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'National ID: 29912011234567',
+                                  'National ID: ${appState.userProfile?['nationalId'] ?? 'Unknown'}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -206,7 +210,7 @@ class ProfileScreen extends StatelessWidget {
                     _buildProfileOption(
                       icon: Icons.phone_outlined,
                       title: 'Phone Number',
-                      subtitle: '+20 101 234 5678',
+                      subtitle: appState.userProfile?['phoneNumber'] ?? '+20 ...',
                       onTap: () {
                         showDialog(
                           context: context,
@@ -217,7 +221,7 @@ class ProfileScreen extends StatelessWidget {
                     _buildProfileOption(
                       icon: Icons.location_on_outlined,
                       title: 'Address',
-                      subtitle: 'Cairo, Nasr City',
+                      subtitle: '${appState.userProfile?['city'] ?? 'City'}, ${appState.userProfile?['governorate'] ?? 'Governorate'}',
                       onTap: () {
                         showDialog(
                           context: context,

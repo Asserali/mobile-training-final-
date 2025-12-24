@@ -25,6 +25,7 @@ class AppState extends ChangeNotifier {
   List<Transaction> _transactions = [];
   List<models.Category> _categories = [];
   List<Budget> _budgets = [];
+  Map<String, dynamic>? _userProfile;
 
   // UI State
   bool _isLoading = false;
@@ -41,6 +42,7 @@ class AppState extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   Account? get selectedAccount => _selectedAccount;
+  Map<String, dynamic>? get userProfile => _userProfile;
 
   double get totalBalance {
     return _accounts.fold(0.0, (sum, account) => sum + account.balance);
@@ -57,12 +59,13 @@ class AppState extends ChangeNotifier {
     _setLoading(true);
     try {
       // Listen to auth state changes
-      _authSubscription = _firebase.authStateChanges.listen((user) {
+      _authSubscription = _firebase.authStateChanges.listen((user) async {
         _isAuthenticated = user != null;
         _currentUserId = user?.uid;
         notifyListeners();
 
         if (_isAuthenticated) {
+          await loadUserProfile();
           _setupDataListeners();
         } else {
           _cancelDataListeners();
@@ -75,6 +78,9 @@ class AppState extends ChangeNotifier {
       _currentUserId = _firebase.currentUserId;
 
       if (_isAuthenticated) {
+        // Load user profile
+        await loadUserProfile();
+        
         // Add timeout to prevent hanging on slow connections
         await _setupDataListeners().timeout(
           const Duration(seconds: 10),
@@ -162,6 +168,7 @@ class AppState extends ChangeNotifier {
     _categories = [];
     _budgets = [];
     _selectedAccount = null;
+    _userProfile = null;
     notifyListeners();
   }
 
@@ -434,6 +441,29 @@ class AppState extends ChangeNotifier {
             t.date.isAfter(startOfMonth) &&
             t.date.isBefore(endOfMonth))
         .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
+  // User Profile
+  Future<void> loadUserProfile() async {
+    if (_currentUserId == null) return;
+    
+    try {
+      // Try with FirebaseService (real)
+      final profile = await _firebase.getUserProfile();
+      if (profile != null) {
+        _userProfile = profile;
+        notifyListeners();
+        return;
+      }
+      
+      // Fallback to MockFirebaseService for hybrid usage if needed, 
+      // or if you want to be explicit about using the Mock service that handles the custom registration.
+      // Since AppState uses FirebaseService by default, we should double check if FirebaseService has getUserProfile.
+      // It does (I checked earlier).
+      
+    } catch (e) {
+      debugPrint('Error loading user profile: $e');
+    }
   }
 
   // Helper methods
