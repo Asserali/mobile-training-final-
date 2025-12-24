@@ -125,27 +125,35 @@ class FirebaseService {
 
   /// Find user and account by card number
   Future<Map<String, dynamic>?> findUserByCardNumber(String cardNumber) async {
-    // We use collectionGroup to search across all 'cards' subcollections
-    final query = await _firestore
-        .collectionGroup('cards')
-        .where('cardNumber', isEqualTo: cardNumber)
-        .limit(1)
-        .get();
+    try {
+      // We use collectionGroup to search across all 'cards' subcollections
+      final query = await _firestore
+          .collectionGroup('cards')
+          .where('cardNumber', isEqualTo: cardNumber)
+          .limit(1)
+          .get();
 
-    if (query.docs.isEmpty) return null;
-    
-    final cardDoc = query.docs.first;
-    final accountId = cardDoc.data()['accountId'] as String;
-    // The user ID is the parent of the cards collection (users/{uid}/cards/{cardId})
-    final uid = cardDoc.reference.parent.parent!.id;
-    
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    
-    return {
-      'uid': uid,
-      'accountId': accountId,
-      'userData': userDoc.data(),
-    };
+      if (query.docs.isEmpty) {
+        print('findUserByCardNumber: No card found for $cardNumber');
+        return null;
+      }
+      
+      final cardDoc = query.docs.first;
+      final accountId = cardDoc.data()['accountId'] as String;
+      // The user ID is the parent of the cards collection (users/{uid}/cards/{cardId})
+      final uid = cardDoc.reference.parent.parent!.id;
+      
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      
+      return {
+        'uid': uid,
+        'accountId': accountId,
+        'userData': userDoc.data(),
+      };
+    } catch (e) {
+      print('Error in findUserByCardNumber: $e');
+      return null;
+    }
   }
 
   // Transaction Methods
@@ -206,6 +214,19 @@ class FirebaseService {
     
     if (!doc.exists) return null;
     return Account.fromFirestore(doc);
+  }
+
+  /// Get primary account (first one found)
+  Future<Account?> getPrimaryAccount(String uid) async {
+    final query = await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('accounts')
+        .limit(1)
+        .get();
+    
+    if (query.docs.isEmpty) return null;
+    return Account.fromFirestore(query.docs.first);
   }
 
   /// Delete transaction

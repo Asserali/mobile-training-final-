@@ -456,6 +456,19 @@ class AppState extends ChangeNotifier {
       }
 
       if (targetUid != null) {
+        // Find the specific account to credit
+        String finalAccountId = targetAccountId ?? '';
+        
+        if (finalAccountId.isEmpty) {
+          final primaryAccount = await _firebase.getPrimaryAccount(targetUid);
+          if (primaryAccount != null) {
+            finalAccountId = primaryAccount.id;
+          } else {
+            // Fallback to 'main' only if no accounts found (should not happen for real users)
+            finalAccountId = 'main';
+          }
+        }
+
         // 2. Create income transaction for recipient
         final incomeTransaction = Transaction(
           id: DateTime.now().millisecondsSinceEpoch.toString() + '_income',
@@ -465,14 +478,14 @@ class AppState extends ChangeNotifier {
           date: DateTime.now(),
           type: TransactionType.income,
           notes: notes,
-          accountId: targetAccountId ?? 'main', // Default to 'main' if not found by card
+          accountId: finalAccountId,
         );
 
         await _firebase.addTransactionToUser(targetUid, incomeTransaction);
         
         // 3. Update recipient balance in Firestore
         // We use the new direct update method to ensure it's recorded in the database
-        await _firebase.updateAccountBalanceDirect(targetUid, incomeTransaction.accountId, amount);
+        await _firebase.updateAccountBalanceDirect(targetUid, finalAccountId, amount);
 
         // 4. Send notification to recipient
         await _firebase.addNotificationToUser(targetUid, NotificationItem(
@@ -485,7 +498,7 @@ class AppState extends ChangeNotifier {
           category: 'Transactions',
         ));
         
-        debugPrint('P2P Transfer successful to $targetUid');
+        debugPrint('P2P Transfer successful to $targetUid ($finalAccountId)');
       } else {
         debugPrint('Recipient $recipient not found in system - transaction remains local');
       }
