@@ -82,6 +82,16 @@ class Account {
       createdAt: DateTime.parse(data['createdAt'] as String),
     );
   }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Account &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          balance == other.balance;
+
+  @override
+  int get hashCode => id.hashCode ^ balance.hashCode;
 }
 
 enum AccountType {

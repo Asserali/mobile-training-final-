@@ -19,6 +19,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _budgetsSubscription;
   StreamSubscription? _cardsSubscription;
   StreamSubscription? _notificationsSubscription;
+  StreamSubscription? _contactsSubscription;
   StreamSubscription? _authSubscription;
 
   // Authentication
@@ -32,6 +33,7 @@ class AppState extends ChangeNotifier {
   List<Budget> _budgets = [];
   List<BankCard> _cards = [];
   List<NotificationItem> _notifications = [];
+  List<Map<String, dynamic>> _contacts = [];
   Map<String, dynamic>? _userProfile;
   
   // UI State
@@ -49,6 +51,7 @@ class AppState extends ChangeNotifier {
   List<Budget> get budgets => _budgets;
   List<BankCard> get cards => _cards;
   List<NotificationItem> get notifications => _notifications;
+  List<Map<String, dynamic>> get contacts => _contacts;
   bool get isLoading => _isLoading;
   String? get error => _error;
   Account? get selectedAccount => _selectedAccount;
@@ -211,6 +214,14 @@ class AppState extends ChangeNotifier {
       },
       onError: (e) => debugPrint('Notifications error: $e'),
     );
+
+    _contactsSubscription = _firebase.getContacts().listen(
+      (contacts) {
+        _contacts = contacts;
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('Contacts error: $e'),
+    );
   }
 
   void _cancelDataListeners() {
@@ -220,6 +231,7 @@ class AppState extends ChangeNotifier {
     _budgetsSubscription?.cancel();
     _cardsSubscription?.cancel();
     _notificationsSubscription?.cancel();
+    _contactsSubscription?.cancel();
   }
 
   void _clearData() {
@@ -319,7 +331,40 @@ class AppState extends ChangeNotifier {
         _setError('Amount must be positive');
         return;
       }
+
       final account = _accounts.firstWhere((a) => a.id == transaction.accountId);
+
+      // Validation for Frozen Card and Limits
+      try {
+        final card = _cards.firstWhere((c) => c.accountId == account.id);
+        
+        if (card.status == CardStatus.frozen) {
+          _setError('This card is frozen. Please unfreeze it to perform transactions.');
+          return;
+        }
+
+        if (transaction.type == TransactionType.expense) {
+          if (transaction.amount > card.dailyLimitRemaining) {
+            _setError('Transaction exceeds daily limit of \$${card.dailyLimit}');
+            return;
+          }
+          if (transaction.amount > card.monthlyLimitRemaining) {
+            _setError('Transaction exceeds monthly limit of \$${card.monthlyLimit}');
+            return;
+          }
+          
+          // Update card spent amounts
+          final updatedCard = card.copyWith(
+            currentDailySpent: card.currentDailySpent + transaction.amount,
+            currentMonthlySpent: card.currentMonthlySpent + transaction.amount,
+          );
+          await _firebase.updateCard(updatedCard);
+        }
+      } catch (e) {
+        // If no card is linked to this account, proceed with account-only logic
+        debugPrint('No card linked to account: $e');
+      }
+
       final newBalance = transaction.type == TransactionType.income
           ? account.balance + transaction.amount
           : account.balance - transaction.amount;
@@ -332,16 +377,22 @@ class AppState extends ChangeNotifier {
       await _firebase.addTransaction(transaction);
       await updateAccountBalance(account.id, newBalance);
 
-      // Add Notification
-      await addNotification(NotificationItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        icon: transaction.type == TransactionType.income ? Icons.arrow_downward : Icons.arrow_upward,
-        iconColor: transaction.type == TransactionType.income ? Colors.green : Colors.red,
-        title: 'Transaction Alert',
-        message: 'You ${transaction.type == TransactionType.income ? 'received' : 'spent'} \$${transaction.amount.toStringAsFixed(2)} at ${transaction.title}',
-        time: DateTime.now(),
-        category: 'Transactions',
-      ));
+      // Add Notification if settings allow
+      final settings = _userProfile?['notificationSettings'] as Map<String, dynamic>?;
+      final showTransactionAlerts = settings?['transactionAlerts'] ?? true;
+      final showPush = settings?['pushNotifications'] ?? true;
+
+      if (showTransactionAlerts && showPush) {
+        await addNotification(NotificationItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          icon: transaction.type == TransactionType.income ? Icons.arrow_downward : Icons.arrow_upward,
+          iconColor: transaction.type == TransactionType.income ? Colors.green : Colors.red,
+          title: 'Transaction Alert',
+          message: 'You ${transaction.type == TransactionType.income ? 'received' : 'spent'} \$${transaction.amount.toStringAsFixed(2)} at ${transaction.title}',
+          time: DateTime.now(),
+          category: 'Transactions',
+        ));
+      }
     } catch (e) {
       _setError('Failed to add transaction: $e');
     }
@@ -504,6 +555,27 @@ class AppState extends ChangeNotifier {
       await _firebase.markAllNotificationsAsRead();
     } catch (e) {
       debugPrint('Error marking all as read: $e');
+    }
+  }
+
+  // Contact operations
+  Future<void> addContact(String name, String value, String type) async {
+    try {
+      await _firebase.addContact({
+        'name': name,
+        'value': value,
+        'type': type,
+      });
+    } catch (e) {
+      _setError('Failed to add contact: $e');
+    }
+  }
+
+  Future<void> removeContact(String id) async {
+    try {
+      await _firebase.removeContact(id);
+    } catch (e) {
+      _setError('Failed to remove contact: $e');
     }
   }
 

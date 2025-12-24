@@ -407,4 +407,45 @@ class FirebaseService {
     
     await batch.commit();
   }
+  // Contact Methods
+  Future<void> addContact(Map<String, String> contact) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+    
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .add({
+          ...contact,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Stream<List<Map<String, dynamic>>> getContacts() {
+    if (currentUserId == null) return Stream.value([]);
+    
+    return _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .orderBy('name')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {
+              ...doc.data(),
+              'id': doc.id,
+            })
+            .toList());
+  }
+
+  Future<void> removeContact(String contactId) async {
+    if (currentUserId == null) throw Exception('No user logged in');
+    
+    await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .doc(contactId)
+        .delete();
+  }
 }

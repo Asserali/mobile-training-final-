@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 
 class RequestMoneyScreen extends StatefulWidget {
   const RequestMoneyScreen({super.key});
@@ -120,13 +122,13 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
                       _RecipientTypeTile(
                         icon: Icons.phone_android,
                         label: 'Phone Number',
-                        onTap: () {},
+                        onTap: () => _showContactsSheet(context, 'Phone'),
                       ),
                       const SizedBox(width: 12),
                       _RecipientTypeTile(
                         icon: Icons.badge_outlined,
                         label: 'Account ID',
-                        onTap: () {},
+                        onTap: () => _showContactsSheet(context, 'Account ID'),
                       ),
                     ],
                   ),
@@ -206,6 +208,65 @@ class _RequestMoneyScreenState extends State<RequestMoneyScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showContactsSheet(BuildContext context, String type) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final appState = Provider.of<AppState>(context);
+        final filteredContacts = appState.contacts.where((c) => c['type'] == type).toList();
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Saved $type Contacts',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              if (filteredContacts.isEmpty)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text('No saved contacts for this type'),
+                ))
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: filteredContacts.length,
+                  itemBuilder: (context, index) {
+                    final contact = filteredContacts[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF00E676).withOpacity(0.1),
+                        child: Text(contact['name'][0].toUpperCase(), style: const TextStyle(color: Color(0xFF00E676))),
+                      ),
+                      title: Text(contact['name']),
+                      subtitle: Text(contact['value']),
+                      onTap: () {
+                        setState(() {
+                          _recipientController.text = contact['value'];
+                        });
+                        Navigator.pop(context);
+                      },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        onPressed: () => appState.removeContact(contact['id']),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

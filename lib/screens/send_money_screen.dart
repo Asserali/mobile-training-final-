@@ -164,17 +164,13 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                       _RecipientTypeTile(
                         icon: Icons.phone_android,
                         label: 'Phone Number',
-                        onTap: () {
-                          // Change input mode or show phone picker
-                        },
+                        onTap: () => _showContactsSheet(context, 'Phone'),
                       ),
                       const SizedBox(width: 16),
                       _RecipientTypeTile(
                         icon: Icons.badge_outlined,
                         label: 'Account ID',
-                        onTap: () {
-                          // Change input mode
-                        },
+                        onTap: () => _showContactsSheet(context, 'Account ID'),
                       ),
                     ],
                   ),
@@ -317,7 +313,19 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
 
                         await appState.addTransaction(transaction);
 
-                        if (mounted) {
+                        if (appState.error != null && mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(appState.error!), backgroundColor: Colors.red),
+                          );
+                          appState.clearError();
+                          return;
+                        }
+
+                        // Check if we should save this recipient
+                        final isAlreadySaved = appState.contacts.any((c) => c['value'] == _recipientController.text);
+                        if (!isAlreadySaved) {
+                          _showSaveContactDialog(context, _recipientController.text);
+                        } else if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Money sent successfully!'),
@@ -354,6 +362,113 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showContactsSheet(BuildContext context, String type) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final appState = Provider.of<AppState>(context);
+        final filteredContacts = appState.contacts.where((c) => c['type'] == type).toList();
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Saved $type Contacts',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              if (filteredContacts.isEmpty)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text('No saved contacts for this type'),
+                ))
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: filteredContacts.length,
+                  itemBuilder: (context, index) {
+                    final contact = filteredContacts[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF00E676).withOpacity(0.1),
+                        child: Text(contact['name'][0].toUpperCase(), style: const TextStyle(color: Color(0xFF00E676))),
+                      ),
+                      title: Text(contact['name']),
+                      subtitle: Text(contact['value']),
+                      onTap: () {
+                        setState(() {
+                          _recipientController.text = contact['value'];
+                        });
+                        Navigator.pop(context);
+                      },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        onPressed: () => appState.removeContact(contact['id']),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSaveContactDialog(BuildContext context, String value) {
+    final nameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save Recipient?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Would you like to save this recipient for future use?'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Contact Name',
+                hintText: 'e.g. Mom, John Doe',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back from SendMoneyScreen
+            },
+            child: const Text('No Thanks'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty) {
+                final appState = Provider.of<AppState>(context, listen: false);
+                final type = value.length > 10 ? 'Account ID' : 'Phone';
+                await appState.addContact(nameController.text, value, type);
+                if (context.mounted) {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Go back from SendMoneyScreen
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E676)),
+            child: const Text('Save & Finish'),
+          ),
+        ],
       ),
     );
   }
